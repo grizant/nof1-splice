@@ -7,15 +7,18 @@
 ## i. Code development objects (DO NOT RUN)
 
 ## load("~/Dropbox/Splice-n-of-1-pathways/Data/example_iso_tpm_data.RData")
+## tmp_pat <- "TCGA.A7.A0CE"
 ## X <- rel_list[[tmp_symbol]]
 ## X <- example_iso_data
-## tmp_gene <- gene_list[[1]]
-## tmp_gene <- rel_list[[1]]
+## tmp_gene <- gene_list[[sample(1:length(gene_list), 1)]]
+## tmp_gene <- rel_list[[sample(1:length(rel_list), 1)]]
 ## tmp_symbol <- names(which(tmp_logic))[1]
 ## system.time(example_hel <- transform_iso_gene(example_iso_data, method = "hellinger"))
-## str(example_hel)
-## summary(example_hel)
-## qplot(example_hel)
+## system.time(example_delta <- transform_iso_gene(example_iso_data, method = "delta"))
+## system.time(example_delta <- transform_iso_gene(example_iso_data, method = "delta", remove_DEGs = T))
+## str(example_delta)
+## summary(example_delta)
+## qplot(example_delta)
 
 ############################################################
 ## 1. Isoform distance functions
@@ -40,9 +43,26 @@ compute_hellinger <- function(X) {
 ## 2. Isoform-to-gene functions
 
 ## transform isoform-level expression to gene level
-transform_iso_gene <- function(X, method = c("delta", "hellinger"), ...) {
+transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs = F, fiter = T, ...) {
+    
     ## restructure into a list of genes
     gene_list <- split(X[,-1], X[,1])
+
+    ## remove DEGs (responsive transcripts) if desired via a clustering step
+    if (remove_DEGs) {
+        ## find log fold change at the gene level
+        logFC_gene_vec <- unlist(lapply(gene_list, function(tmp_gene) {
+            ## sum the isoform level to find the transcript-level expression
+            log2(sum(tmp_gene[,2]) + 1) - log2(sum(tmp_gene[,1]) + 1)
+        }))
+        ## apply k-means to cluster (first step in kMEn) and remove DEG cluster
+        tmp_cluster <- kmeans(x = abs(logFC_gene_vec), centers = 2, nstart = 100)
+        ## figure out which cluster corresponds to non-DEGs
+        clust_index <- which.min(tmp_cluster$centers)
+        genes_to_keep <- names(tmp_cluster$cluster)[tmp_cluster$cluster == clust_index]
+        gene_list <- gene_list[genes_to_keep]
+    }
+    
     ## transform via specified method
     if (method == "hellinger") {
         ## first compute the relative expression within a gene
@@ -60,7 +80,13 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), ...) {
 
     ## Yves method of maximum difference in expression
     if (method == "delta") {
-
+        to_return <- unlist(lapply(gene_list, function(tmp_gene){
+            ## find the largest difference 
+            ## first calculate log fold change
+            tmp_iso_fc <- log2(tmp_gene[,2] + 1) - log2(tmp_gene[,1] + 1)
+            ## calculate and store the largest fold change
+            tmp_iso_fc[which.max(abs(tmp_iso_fc))]
+        }))
     }
 
     ## return the gene-level metrics
@@ -97,9 +123,10 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## center the data
         ## avg_dist <- avg_dist - mean(avg_dist)
         #### 2.2 Apply local FDR of Efron
-        ## pdf(file = paste0("~/Dropbox/Splice-n-of-1-pathways/Preliminary_figures/Local_FDR_GO-BP_Avg_Hellinger_distances_TPM_patient_", tmp_pat,".pdf"))
-        tmp_locfdr <- locfdr::locfdr(zz = avg_dist, plot = 0)
+        ## pdf(file = paste0("~/Dropbox/Splice-n-of-1-pathways/Preliminary_figures/Local_FDR_GO-BP_Avg_Iso-Delta_removed_transcripts_TPM_patient_", tmp_pat,".pdf"))
+        ## tmp_locfdr <- locfdr::locfdr(zz = avg_dist)
         ## dev.off()
+        tmp_locfdr <- locfdr::locfdr(zz = avg_dist, plot = 0)
         #### 2.3 Find interesting pathways (more differentially splicing)
         ## first find the upper threshold
         tmp_upper <- tmp_locfdr$z.2[2]
@@ -133,6 +160,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 
 
 ## gene_dist <- example_hel
+## gene_dist <- example_delta
 ## annot_file <- "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_filtered15-500.txt"
 ## 
 ## system.time(example_avg <- transform_gene_pathway(gene_dist = example_hel, annot_file = "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_filtered15-500.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_description.txt", method = "avg")) ## 6.76 seconds
@@ -147,8 +175,8 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 ## 4. Wrapper for the entire isoform -> gene -> pathway
 
 ## transform gene-level expression to pathway level
-transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("kMEn", "avg", "fet"), gene_method = c("delta", "hellinger"), ...) {
-    
+transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("kMEn", "avg", "fet"), gene_method = c("delta", "hellinger"), remove_DEGs = F, ...) {
+
     ## 1. Find genewise distances
     gene_dist <- transform_iso_gene(X = iso_data, method = gene_method, ...)
 

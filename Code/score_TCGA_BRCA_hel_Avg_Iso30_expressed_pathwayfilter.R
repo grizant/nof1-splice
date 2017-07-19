@@ -74,9 +74,18 @@ parallel::stopCluster(cl = cl)
 ##############################################################################
 #### 5. Explore
 
+load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressiod_pathwayfilter_13july2017.RData")
+
 (num_hits <- unlist(lapply(scores_list, function(tmp_data){
     sum(tmp_data$diff_splice_call, na.rm = T)
 })))
 
 summary(num_hits)
 qplot(num_hits)
+
+## isoform distance relationship
+
+tmp_iso <- iso_go_list[[1]]
+
+## find average number of isoforms 
+str(tmp_iso)

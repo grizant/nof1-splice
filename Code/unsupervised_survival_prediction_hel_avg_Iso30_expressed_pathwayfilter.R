@@ -31,6 +31,17 @@ effect_list <- lapply(scores_list, function(tmp_data){
 ## aggregate into a matrix
 effect_mat <- do.call("rbind", effect_list)
 
+#### New code after iso/pathway filtering
+## understand NA distribution
+missing_logic <- apply(effect_mat, 2, function(tmp_pathway) {
+    any(is.na(tmp_pathway))
+})
+table(missing_logic) ## only 498 pathways to remove
+
+fil_effect_mat <- effect_mat[, !missing_logic]
+
+str(fil_effect_mat)
+
 ## retrieve fdr
 fdr_list <- lapply(scores_list, function(tmp_data){
     ## retrieve effect size
@@ -44,9 +55,21 @@ fdr_list <- lapply(scores_list, function(tmp_data){
 ## aggregate into a matrix
 fdr_mat <- do.call("rbind", fdr_list)
 
+#### New code after iso/pathway filtering
+## understand NA distribution
+missing_logic <- apply(fdr_mat, 2, function(tmp_pathway) {
+    any(is.na(tmp_pathway))
+})
+table(missing_logic) ## only 498 pathways to remove
+
+fil_fdr_mat <- fdr_mat[, !missing_logic]
+
+str(fil_fdr_mat)
+
+######### 3.2 start clustering attempts
 ## cluster the patients (do this more sophicately in future study)
 tmp_k <- 2
-tmp_clustering <- cluster::pam(x = effect_mat, k = tmp_k)
+tmp_clustering <- cluster::pam(x = fil_effect_mat, k = tmp_k)
 table(tmp_clustering$clustering)
 
 ## remove any patients that are not in the clinical data
@@ -59,7 +82,7 @@ table(clin_data$cluster)
 
 ## cluster by fdrthe patients (do this more sophicately in future study)
 tmp_k <- 2
-tmp_clustering <- cluster::pam(x = fdr_mat, k = tmp_k)
+tmp_clustering <- cluster::pam(x = fil_fdr_mat, k = tmp_k)
 table(tmp_clustering$clustering)
 
 ## remove any patients that are not in the clinical data
@@ -72,11 +95,11 @@ table(clin_data$cluster_fdr)
 
 ## try spectral clustering on effect size
 min_nj <- 4
-max_centers <- ceiling(nrow(effect_mat) / min_nj)
-neighbors  <- ceiling(log(nrow(effect_mat)) + 1)
+max_centers <- ceiling(nrow(fil_effect_mat) / min_nj)
+neighbors  <- ceiling(log(nrow(fil_effect_mat)) + 1)
 
 ## Compute eigenvalues for max number of centers to use eignegap heuritic
-sc_max <- kknn::specClust(data = effect_mat, centers = max_centers, nn = neighbors, method = "random-walk")
+sc_max <- kknn::specClust(data = fil_effect_mat, centers = max_centers, nn = neighbors, method = "random-walk")
 
 qplot(factor(1:length(sc_max$eigenvalue)), sc_max$eigenvalue)
 eigen_diff <- diff(sc_max$eigenvalue)[-1]
@@ -86,10 +109,11 @@ diff_data <- diff_data[order(diff_data$eigen_diff, decreasing = T), ]
 ## add terminal clustering
 diff_data <- rbind(diff_data, c(m = 1, 0))
 best_m <- diff_data$m[1]
+## best_m <- 11
 
-sc_best <- kknn::specClust(data = effect_mat, centers = best_m, nn = neighbors, method = "random-walk")
+sc_best <- kknn::specClust(data = fil_effect_mat, centers = best_m, nn = neighbors, method = "random-walk")
 
-names(sc_best$cluster) <- rownames(effect_mat)
+names(sc_best$cluster) <- rownames(fil_effect_mat)
 
 ## remove any patients that are not in the clinical data
 my_clusters <- sc_best$cluster[names(sc_best$cluster) %in% rownames(clin_data)]
@@ -211,10 +235,10 @@ sf_coxph <- survival::coxph(clin_surv ~ factor(cluster), data = clin_data)
 #### 5. Try PCA
 
 ## remove patient without clinical data
-to_keep <- rownames(effect_mat)[(rownames(effect_mat) %in% rownames(clin_data))]
+to_keep <- rownames(fil_effect_mat)[(rownames(fil_effect_mat) %in% rownames(clin_data))]
 
 ## 5.1 pca on effect size (hellinger distance)
-effect_pca <- prcomp(effect_mat[to_keep,])
+effect_pca <- prcomp(fil_effect_mat[to_keep,])
 effect_pca_mat <- effect_pca$x
 
 ## add clinical data
@@ -228,7 +252,8 @@ names(effect_pca_dat) <- gsub(rev(names(effect_pca_dat))[1], "Survival", names(e
 
 ## visualize first two PCs
 qplot(x = PC1, y = PC2, color = factor(vital), data = effect_pca_dat)
-qplot(x = PC1, y = PC2, color = Survival, data = effect_pca_dat)
+qplot(x = PC2, y = PC3, color = factor(vital), data = effect_pca_dat)
+qplot(x = PC2, y = PC3, color = Survival, data = effect_pca_dat)
 
 
 ##### 5.2 pca on fdr value

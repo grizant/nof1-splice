@@ -67,7 +67,7 @@ system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform
 save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressiod_pathwayfilter_KEGG_18july2017.RData")
 
 ## now score by Empirical Enrichment
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 52 seconds
+system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 62 seconds
 
 ## save the object
 save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_18july2017.RData")
@@ -82,6 +82,8 @@ parallel::stopCluster(cl = cl)
     sum(tmp_data$diff_splice_call, na.rm = T)
 })))
 
+summary(num_hits)
+
 ## find number of cancer hits
 ## tmp_data <- scores_list[[1]]
 ## tmp_id <- "hsa05200"
@@ -91,7 +93,7 @@ parallel::stopCluster(cl = cl)
     any(grepl("cancer", tmp_data[tmp_data$diff_splice_call == 1, "pathway_desc"]))
 })))
 
-
+any(cancer_logic)
 
 summary(num_hits)
 qplot(num_hits)

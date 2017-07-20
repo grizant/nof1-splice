@@ -53,7 +53,7 @@ parallel::clusterEvalQ(cl, expr = library(locfdr))
 ## tmp_list <- iso_go_list[tmp_index]
 ## 
 ## system.time(avg_scores <- parallel::parLapply(cl = cl, tmp_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_filtered15-500.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_description.txt", pathway_method = "EE", gene_method = "hellinger"))
-## 55 seconds
+## 40 seconds
 ## scores_list <- avg_scores
 
 ##############################################################################
@@ -62,7 +62,7 @@ parallel::clusterEvalQ(cl, expr = library(locfdr))
 system.time(scores_list <- parallel::parLapply(cl = cl, iso_go_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_filtered15-500.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/GO/2015/go_bp_description.txt", pathway_method = "EE", gene_method = "hellinger")) ## 390 seconds
 
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_13july2017.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressed_pathwayfilter_20july2017.RData")
 
 ## close cluster
 parallel::stopCluster(cl = cl)
@@ -70,7 +70,7 @@ parallel::stopCluster(cl = cl)
 ##############################################################################
 #### 5. Explore
 
-load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressiod_pathwayfilter_13july2017.RData")
+load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressed_pathwayfilter_20july2017.RData")
 
 (num_hits <- unlist(lapply(scores_list, function(tmp_data){
     sum(tmp_data$diff_splice_call, na.rm = T)
@@ -78,10 +78,3 @@ load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressiod_p
 
 summary(num_hits)
 qplot(num_hits)
-
-## isoform distance relationship
-
-tmp_iso <- iso_go_list[[1]]
-
-## find average number of isoforms 
-str(tmp_iso)

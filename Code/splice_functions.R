@@ -163,31 +163,43 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 ### 2.2 FET after gene-wise local FDR
     if (method == "EE") {
         ##  2.2.1 Find alternatively spliced genes across whole transcriptome
-        hist(gene_dist, breaks = 120)
+        ## hist(gene_dist, breaks = 120)
+        gene_clusters <- kmeans(x = gene_dist, 2)
+        ## gene_clusters$centers
         ## remove dist = 1 (or near it) or 0 due to fitting difficulties.
         ## ... give 1 a positive call and 0 negative call manually later
-        tolerance <- .Machine$double.eps^0.5
-        dist_one <- which(abs(gene_dist - 1) < tolerance)
-        dist_zero <- which(abs(gene_dist) < tolerance)
-        remove_index <- c(dist_one, dist_zero)
-        ## now filter
-        transformed_dist <- gene_dist[-remove_index]
-        transformed_dist <- ecdf(transformed_dist)(transformed_dist)
-        transformed_dist <- qnorm(transformed_dist)
-        ## replace Inf (corresponding to 1) with max + esp
-        eps <- 0.001
-        transformed_dist[is.infinite(transformed_dist)] <- max(transformed_dist[!is.infinite(transformed_dist)], na.rm = T) + eps
-        ## now transform
-        ## tail(sort(transformed_dist))
-        ## hist(transformed_dist, 120)
-        ## summary(transformed_dist)
-        tmp_locfdr <- locfdr::locfdr(zz = transformed_dist, bre = 120, df = 7, pct = 0, plot = 4)
-        tmp_locfdr <- locfdr::locfdr(zz = gene_dist, bre = 120, df = 7, pct = 0, pct0 = 1/4, plot = 0)
-        tmp_upper <- tmp_locfdr$z.2[2]
-        ## all calls to gene dist (this may be anti-conservative/conservative depending on the ones and zeros)
+        ##tolerance <- .Machine$double.eps^0.5
+        ##dist_one <- which(abs(gene_dist - 1) < tolerance)
+        ##dist_zero <- which(abs(gene_dist) < tolerance)
+        ##remove_index <- c(dist_one, dist_zero)
+        #### now filter
+        ##transformed_dist <- gene_dist[-remove_index]
+        #### transformed_dist <- ecdf(transformed_dist)(transformed_dist)
+        ##transformed_dist <- qnorm(transformed_dist)
+        ##summary(transformed_dist)
+        #### replace Inf (corresponding to 1) with max + esp
+        #### eps <- 0.001
+        #### transformed_dist[is.infinite(transformed_dist)] <-
+        #### max(transformed_dist[!is.infinite(transformed_dist)], na.rm = T) + eps
+        #### now transform
+        #### tail(sort(transformed_dist))
+        ##hist(transformed_dist, 120)
+        #### summary(transformed_dist)
+        ##tmp_locfdr <- locfdr::locfdr(zz = transformed_dist, bre = 120, df = 7, pct = 0, nulltype = 1, plot = 4,
+        ##                             mlests = c(mean(transformed_dist), sd(transformed_dist)))
+        #### retrieve hits
+        ##tmp_upper <- tmp_locfdr$z.2[2]
+        ##alt_genes <- names(which(transformed_dist > tmp_upper))
+        ##alt_genes <- c(alt_genes, names(dist_one))
+        #### Apply calls to gene dist despite filtering.
+        ## This may be anti-conservative/conservative depending on the ones and zeros.
         dist_data <- data.frame(gene_dist, call = 0)
-        dist_data[gene_dist > tmp_upper, "call"] <- 1
+        ## dist_data[transformed_dist > tmp_upper, "call"] <- 1
+        ## determine which cluster has larger center
+        alt_center <- which.max(gene_clusters$centers)
+        dist_data[names(gene_clusters$cluster), "call"] <- ifelse(gene_clusters$cluster == alt_center, 1, 0)
         ## table(dist_data$call)
+        ## qplot(x = gene_dist, fill = factor(call), data = dist_data, bins = 120)
         
         ## 2.2.2 enrichment
         ## tmp_set <- annot_list[[6]]
@@ -205,24 +217,46 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
                 x22 <- sum(dist_data[not_genes, "call"] == 0)
                 ## sum(x11, x21, x12, x22) == nrow(dist_data)
                 ## compute FET
-                tmp_fet <- fisher.test(x = matrix( c(x11, x21, x12, x22), nrow = 2, ncol = 2))
-                to_return <- tmp_fet$estimate
-                names(to_return) <- NULL
+                ## tmp_fet <- fisher.test(x = matrix( c(x11, x21, x12, x22), nrow = 2, ncol = 2))
+                ## to_return <- tmp_fet$estimate
+                ## names(to_return) <- NULL
+                ## compute odds ratio manually
+                to_return <- ( (x11/x21)/(x12/x22) )
             } else to_return <- NA
             return(to_return)
         }))
         
-        ## qplot(odds_ratio)
+        ## hist(odds_ratio, breaks = 20)
         ## summary(odds_ratio)
         
-        ## 2.2.3 local FDR at the pathway level
-        fil_odds <- odds_ratio[!is.na(odds_ratio)] ## use log odds??
-        tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 7, pct = 0, pct0 = 1/4, plot = 0)
+        ## 2.2.3 local FDR at the pathway level, since we need to control here
+        ## 1. first remove unscored pathways
+        fil_odds <- odds_ratio[!is.na(odds_ratio)]
+        ## 2. then log transform to handle extreme values and to normalize
+        # (Chinn 2000, A simple method for converting an odds ratio to effect size for use in meta-analysis
+        ## fil_odds <- log(fil_odds)/1.81 
+        ## 3. filter any -Inf due to 0
+        ## fil_odds <- fil_odds[!is.infinite(fil_odds)]
+        ## detect outlying pathways above prior to fitting
+        outliers <- boxplot.stats(fil_odds)$out
+        if (length(outliers) > 0) fil_odds <- fil_odds[!(names(fil_odds) %in% names(outliers))]
+        ## hist(fil_odds, breaks = 20)
+
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 7, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1, mlests = c(mean(fil_odds), sd(fil_odds)))
+        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 7, pct = 0,
+                                                      pct0 = 1/4, nulltype = 1, plot = 0, mlests = c(1, sd(fil_odds))))
         tmp_upper <- tmp_locfdr$z.2[2]
         ## then indicate the hits the hits
         ## tmp_hits <- names(avg_dist)[avg_dist >= tmp_upper]
         tmp_call <- rep(0, length(odds_ratio))
-        tmp_call[odds_ratio >= tmp_upper] <- 1
+        names(tmp_call) <- names(odds_ratio)
+        if (!is.na(tmp_upper)) {
+            tmp_call[odds_ratio >= tmp_upper] <- 1
+        } else {
+            if (length(outliers) > 0) {
+                tmp_call[names(outliers)] <- 1
+            }
+        }
         ## table(tmp_call)
 
         ## 2.2.4 format the output
@@ -231,6 +265,8 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## str(tmp_locfdr)
         ## update fdr_value
         to_return[names(fil_odds), "fdr_value"] <- tmp_locfdr$fdr
+        ## and give p-value of 0 for outliers
+        if (length(outliers) > 0) {to_return[names(outliers), "fdr_value"] <- 0}
         ## head(sort(to_return$fdr_value), 50)
         ## sort
         to_return <- to_return[order(to_return$pathway_score, decreasing = T),]
@@ -275,7 +311,6 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 
 ## transform gene-level expression to pathway level
 transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("EE", "avg", "fet"), gene_method = c("delta", "hellinger"), remove_DEGs = F, iso_range = c(2,30), genes_range = c(15,500), ...) {
-    
     ## i. pre-processing
     ## restructure into a list of genes
     gene_list <- split(iso_data[,-1], iso_data[,1])
@@ -297,17 +332,23 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
     transform_gene_pathway(gene_dist = gene_dist, annot_file = annot_file,
                            desc_file = desc_file, method = pathway_method,
                            genes_range = genes_range,...)
-                           
 }
 
-## pathway_method <- "avg"
-## gene_method <- "hellinger"
+## 
+## ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
+## iso_data <- iso_kegg_list[[91]]
+## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
+## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
 ## pathway_method <- "EE"
-## an_iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
-## system.time(example_avg <- transform_iso_pathway(iso_data = an_iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 25 seconds
-##  
+## gene_method <- "hellinger"
+## iso_range = c(2,30)
+## genes_range = c(15,500)
+## ##
+## iso_data <- iso_kegg_list[[sample(1:length(iso_kegg_list),1)]]
+## system.time(example_avg <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 2 seconds
+## 
 ## str(example_avg)
-## head(example_avg)
+## head(example_avg, sum(example_avg$diff_splice_call) + 1)
 ## example_avg[is.na(example_avg$pathway_score), "diff_splice_call"]
 ## example_avg[!is.na(example_avg$pathway_score), "diff_splice_call"]
 ## table(example_avg$diff_splice_call)
@@ -315,4 +356,5 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 ## head(sort(example_avg$num_genes_measured))
 ## head(example_avg[order(example_avg$num_genes_measured),])
 ## sum(example_avg$num_genes_measured >= 15)
+## example_avg[grep("cancer", x = example_avg$pathway_desc),]
 

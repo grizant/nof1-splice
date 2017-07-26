@@ -1,44 +1,56 @@
-## R Library for the development of Splice-N-of-1-pathways
+## R Library for the validation of Splice-N-of-1-pathways
 ## AG Schissler
-## Created 12 Apr 2017
-## Last modified 13 Apr 2017
+## Created 26 Jul 2017
 
 ############################################################
 ## i. Code development objects (DO NOT RUN)
 
-## load("~/Dropbox/Splice-n-of-1-pathways/Data/example_iso_tpm_data.RData")
-## tmp_pat <- "TCGA.A7.A0CE"
-## X <- rel_list[[tmp_symbol]]
-## X <- example_iso_data
-## tmp_gene <- gene_list[[sample(1:length(gene_list), 1)]]
-## tmp_gene <- rel_list[[sample(1:length(rel_list), 1)]]
-## tmp_symbol <- names(which(tmp_logic))[1]
-## system.time(example_hel <- transform_iso_gene(example_iso_data, method = "hellinger"))
-## system.time(example_delta <- transform_iso_gene(example_iso_data, method = "delta"))
-## system.time(example_delta <- transform_iso_gene(example_iso_data, method = "delta", remove_DEGs = T))
-## str(example_delta)
-## summary(example_delta)
-## qplot(example_delta)
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_paired_clinical.RData")
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+patients <- names(scores_list)
+clin_data <- clin_data[rownames(clin_data) %in% patients,]
 
 ############################################################
-## 1. Isoform distance functions
+## 1. Aggregate pathway scores and fdr
+
+type = "pathway_score"
+type = "fdr_value"
+tmp_data = scores_list[[1]]
+remove_missing = T
 
 ## 1.1 compute Hellinger distance for isoforms of a gene given pair of measurements
-compute_hellinger <- function(X) {
-    ## if there is more than one isoform compute the hellinger distance
-    if (length(dim(X)) == 2) {
-        ## check that the gene is expressed in both samples
-        if (colSums(X)[1] == 0 | colSums(X)[2] == 0) {
-            ## only alternatively spliced genes are of interest
-            ## hel_dist <- 0
-            hel_dist <- NA
-        } else {
-            hel_dist <- sqrt(0.5*sum((sqrt(X[,1]) - sqrt(X[,2]))^2))
-        }
-    } else hel_dist <- NA
-    ## return the value
-    return(hel_dist)
+compile_scores <- function(scores_list, type = c("pathway_score", "fdr_value"), remove_missing = T) {
+    if (length(scores_list) > 0) {
+        tmp_index <- which(names(scores_list[[1]]) == type)
+    } else stop("Scores list is empty")
+
+    value_list <- lapply(scores_list, function(tmp_data){
+        ## retrieve score
+        tmp_value <- tmp_data[, tmp_index]
+        ## add pathway names
+        names(tmp_value) <- rownames(tmp_data)
+        ## reorder to allow for aggregation
+        tmp_value[order(names(tmp_value))]
+    })
+
+    ## aggregate into a matrix
+    value_mat <- do.call("rbind", value_list)
+
+    ## remove NAs if desired
+    if (remove_missing) {
+        missing_logic <- apply(value_mat, 2, function(tmp_pathway) {
+            any(is.na(tmp_pathway))
+        })
+        ## table(missing_logic) 
+
+        value_mat <- value_mat[, !missing_logic]
+        
+        print(paste("Removed", sum(missing_logic), "unscored pathways out of", length(missing_logic)))
+    }
+    return(value_mat)
 }
+
+## str(compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = T))
 
 ############################################################
 ## 2. Isoform-to-gene functions

@@ -193,7 +193,6 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ##alt_genes <- c(alt_genes, names(dist_one))
         #### Apply calls to gene dist despite filtering.
         ## This may be anti-conservative/conservative depending on the ones and zeros.
-        
         dist_data <- data.frame(gene_dist, call = 0)
         ## dist_data[transformed_dist > tmp_upper, "call"] <- 1
         ## determine which cluster has larger center
@@ -203,7 +202,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## qplot(x = gene_dist, fill = factor(call), data = dist_data, bins = 120)
         
         ## 2.2.2 enrichment
-        ## tmp_set <- annot_list[[sample(1:length(annot_list), 1)]]
+        ## tmp_set <- annot_list[[6]]
         odds_ratio <- unlist(lapply(annot_list, function(tmp_set) {
             tmp_genes <- as.character(tmp_set$symbol)
             measured_genes <- tmp_genes[tmp_genes %in% names(gene_dist)]
@@ -212,17 +211,17 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
             ## impose genes range
             if (length(measured_genes) >= genes_range[1] & length(measured_genes) <= genes_range[2]) {
                 ## calculate counts
-                (x11 <- sum(dist_data[measured_genes, "call"]))
-                (x21 <- sum(dist_data[measured_genes, "call"] == 0))
-                (x12 <- sum(dist_data[not_genes, "call"]))
-                (x22 <- sum(dist_data[not_genes, "call"] == 0))
+                x11 <- sum(dist_data[measured_genes, "call"])
+                x21 <- sum(dist_data[measured_genes, "call"] == 0)
+                x12 <- sum(dist_data[not_genes, "call"])
+                x22 <- sum(dist_data[not_genes, "call"] == 0)
                 ## sum(x11, x21, x12, x22) == nrow(dist_data)
                 ## compute FET
                 ## tmp_fet <- fisher.test(x = matrix( c(x11, x21, x12, x22), nrow = 2, ncol = 2))
                 ## to_return <- tmp_fet$estimate
                 ## names(to_return) <- NULL
                 ## compute odds ratio manually
-                (to_return <-  (x11/x21)/(x12/x22))
+                to_return <- ( (x11/x21)/(x12/x22) )
             } else to_return <- NA
             return(to_return)
         }))
@@ -243,17 +242,16 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         if (length(outliers) > 0) fil_odds <- fil_odds[!(names(fil_odds) %in% names(outliers))]
         ## hist(fil_odds, breaks = 20)
 
-        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(mean(fil_odds), sd(fil_odds)))
-        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
-                                                      pct0 = 1/4, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
-        (tmp_upper <- tmp_locfdr$z.2[2])
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 7, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1, mlests = c(mean(fil_odds), sd(fil_odds)))
+        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 7, pct = 0,
+                                                      pct0 = 1/4, nulltype = 1, plot = 0, mlests = c(1, sd(fil_odds))))
+        tmp_upper <- tmp_locfdr$z.2[2]
         ## then indicate the hits the hits
         ## tmp_hits <- names(avg_dist)[avg_dist >= tmp_upper]
         tmp_call <- rep(0, length(odds_ratio))
         names(tmp_call) <- names(odds_ratio)
         if (!is.na(tmp_upper)) {
-            odds_ratio[which(odds_ratio >= tmp_upper)]
-            tmp_call[which(odds_ratio >= tmp_upper)] <- 1
+            tmp_call[odds_ratio >= tmp_upper] <- 1
         } else {
             if (length(outliers) > 0) {
                 tmp_call[names(outliers)] <- 1
@@ -317,16 +315,6 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
     ## restructure into a list of genes
     gene_list <- split(iso_data[,-1], iso_data[,1])
 
-    ## isoform distribution
-    ## tmp_gene <- gene_list[[1]]
-##     num_iso <- unlist(lapply(gene_list, function(tmp_gene) {
-##         ## retrive number of isoforms
-##         dim(tmp_gene)[1]
-##     }))
-##     summary(num_iso)
-##     sum(num_iso == 1)/length(num_iso) ## 28% only have one form
-##     hist(log(num_iso))
-##     
     ## impose min/max number of isoforms and at least one alternative isoform
     filter_logic <- unlist(lapply(gene_list, function(tmp_gene) {
         ## retrive number of isoforms
@@ -346,8 +334,8 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
                            genes_range = genes_range,...)
 }
 
-
-## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
+## 
+## ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
 ## iso_data <- iso_kegg_list[[91]]
 ## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
@@ -355,17 +343,18 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 ## gene_method <- "hellinger"
 ## iso_range = c(2,30)
 ## genes_range = c(15,500)
-## 
+## ##
 ## iso_data <- iso_kegg_list[[sample(1:length(iso_kegg_list),1)]]
 ## system.time(example_avg <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 2 seconds
 ## 
-## table(example_avg$diff_splice_call)
+## str(example_avg)
 ## head(example_avg, sum(example_avg$diff_splice_call) + 1)
 ## example_avg[is.na(example_avg$pathway_score), "diff_splice_call"]
 ## example_avg[!is.na(example_avg$pathway_score), "diff_splice_call"]
+## table(example_avg$diff_splice_call)
 ## qplot(x = pathway_score, data = example_avg)
 ## head(sort(example_avg$num_genes_measured))
 ## head(example_avg[order(example_avg$num_genes_measured),])
 ## sum(example_avg$num_genes_measured >= 15)
 ## example_avg[grep("cancer", x = example_avg$pathway_desc),]
-## 
+

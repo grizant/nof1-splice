@@ -8,7 +8,7 @@
 #### 1. Setup environment
 
 ## load TCGA BRCA TPM isoform data
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/brca_iso_kegg_data.RData") ## NEW ISOFORM 25 Jul 2017
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_tpm_KEGG.RData")
 
 ## source functions
 source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
@@ -17,7 +17,7 @@ source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
 #### 2. Restructure iso data into a patient-wise list for parallel processing
 
 ## Retrieve patient IDs
-patients_chr <- unique(substring(names(brca_iso_kegg_data[,-(1:4)]), 1, 12))
+patients_chr <- unique(substring(names(iso_kegg_data[,-(1:4)]), 1, 12))
 
 ## create a empty list
 iso_kegg_list <- vector(mode = "list", length =  length(patients_chr))
@@ -26,9 +26,9 @@ names(iso_kegg_list) <- patients_chr
 ## tmp_pat <- patients_chr[1]
 for (tmp_pat in patients_chr) {
     ## retrieve gene symbols and the paired transcriptomes
-    iso_kegg_list[[tmp_pat]] <- (data.frame(geneSymbol = brca_iso_kegg_data$geneSymbol,
-                                            brca_iso_kegg_data[, grep(tmp_pat, names(brca_iso_kegg_data))]))
-    iso_kegg_list[[tmp_pat]][, "geneSymbol"] <- as.character(brca_iso_kegg_data$geneSymbol)
+    iso_kegg_list[[tmp_pat]] <- (data.frame(Gene_symbol = iso_kegg_data$Gene_symbol,
+                                            iso_kegg_data[, grep(tmp_pat, names(iso_kegg_data))]))
+    iso_kegg_list[[tmp_pat]][, "Gene_symbol"] <- as.character(iso_kegg_data$Gene_symbol)
 }
 
 ##############################################################################
@@ -61,16 +61,16 @@ system.time(avg_scores <- parallel::parLapply(cl = cl, tmp_list, transform_iso_p
 ##############################################################################
 #### 4. Score all patients
 
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "avg", gene_method = "hellinger")) ## 26.2 seconds
+system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "avg", gene_method = "hellinger")) ## 52 seconds
 
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_avg_Iso30_expressiod_pathwayfilter_KEGG_18july2017.RData")
 
 ## now score by Empirical Enrichment
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 36.4 seconds
+system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 62 seconds
 
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_18july2017.RData")
 
 ## close cluster
 parallel::stopCluster(cl = cl)
@@ -94,11 +94,6 @@ summary(num_hits)
 })))
 ## tmp_data[grep("cancer", tmp_data$pathway_desc),]
 any(cancer_logic)
-sum(cancer_logic)/length(cancer_logic)
 
-
-## explore some results
-tmp_data <- scores_list[[sample(1:length(scores_list),1)]]
-str(tmp_data)
-head(tmp_data, 20)
-tmp_data[grep("cancer", tmp_data$pathway_desc),]
+summary(num_hits)
+qplot(num_hits)

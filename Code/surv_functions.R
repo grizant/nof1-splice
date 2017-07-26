@@ -5,19 +5,22 @@
 ############################################################
 ## i. Code development objects (DO NOT RUN)
 
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_paired_clinical.RData")
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
-patients <- names(scores_list)
-clin_data <- clin_data[rownames(clin_data) %in% patients,]
+## load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_paired_clinical.RData")
+## load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_paired_clinical.RData")
+## ## load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BRCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## patients <- names(scores_list)
+## clin_data <- clin_data[rownames(clin_data) %in% patients,]
+## 
 
 ############################################################
 ## 1. Aggregate pathway scores and fdr
 
-type = "pathway_score"
-type = "fdr_value"
-tmp_data = scores_list[[1]]
-remove_missing = T
-
+## type = "pathway_score"
+## type = "fdr_value"
+## tmp_data = scores_list[[1]]
+## remove_missing = T
+ 
 compile_scores <- function(scores_list, type = c("pathway_score", "fdr_value"), remove_missing = T) {
     if (length(scores_list) > 0) {
         tmp_index <- which(names(scores_list[[1]]) == type)
@@ -94,15 +97,15 @@ filter_value_mat <- function(effect_mat, fdr_mat, type = c("pathway_score", "fdr
     return(value_mat)
 }
 
-effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
-fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
-fdr_threshold = 0.2
-one_sided = T
-type = "pathway_score"
-type = "fdr_value"
+## effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+## fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+## fdr_threshold = 0.2
+## one_sided = T
+## type = "pathway_score"
+## type = "fdr_value"
 
-fil_effect_mat <- filter_value_mat(effect_mat = effect_mat, fdr_mat = fdr_mat, type = "pathway_score")
-fil_fdr_mat <- filter_value_mat(effect_mat = effect_mat, fdr_mat = fdr_mat, type = "fdr_value")
+## fil_effect_mat <- filter_value_mat(effect_mat = effect_mat, fdr_mat = fdr_mat, type = "pathway_score")
+## fil_fdr_mat <- filter_value_mat(effect_mat = effect_mat, fdr_mat = fdr_mat, type = "fdr_value")
 ## str(fil_fdr_mat)
 
 ############################################################
@@ -126,9 +129,9 @@ produce_clin_surv <- function(clin_data) {
 ############################################################
 ## 3. Cluster patients based on pathway values (perhaps also on one pathway later)
 
-type = "sc"
-type = "pam"
-num_clusters = 2
+## type = "sc"
+## type = "pam"
+## num_clusters = 2
 
 cluster_pat <- function(value_mat, type = c("sc", "pam"), num_clusters = NULL, min_nj = 4, max_clusters = 5) {
     if (type == "sc") {
@@ -170,19 +173,19 @@ cluster_pat <- function(value_mat, type = c("sc", "pam"), num_clusters = NULL, m
     return(to_return)
 }
 
-min_nj <- 4
-max_clusters = 5
-value_mat = value_mat[,1]
-
-(my_clusters <- cluster_pat(value_mat = value_mat, type = "sc"))
-
-## cluster on only significant pathways
-(fil_effect_clusters <- cluster_pat(value_mat = fil_effect_mat, type = "sc"))
-(fil_fdr_clusters <- cluster_pat(value_mat = fil_fdr_mat, type = "sc"))
-
-effect_mat <- compile_scores(scores_list, type = "pathway_score", remove_missing = T)
-## try clustering on one pathway (doesn't work)
-(one_effect_clusters <- cluster_pat(value_mat = effect_mat[,1], type = "pam", num_clusters = 2))
+## min_nj <- 4
+## max_clusters = 5
+## value_mat = value_mat[,1]
+## 
+## (my_clusters <- cluster_pat(value_mat = value_mat, type = "sc"))
+## 
+## ## cluster on only significant pathways
+## (fil_effect_clusters <- cluster_pat(value_mat = fil_effect_mat, type = "sc"))
+## (fil_fdr_clusters <- cluster_pat(value_mat = fil_fdr_mat, type = "sc"))
+## 
+## effect_mat <- compile_scores(scores_list, type = "pathway_score", remove_missing = T)
+## ## try clustering on one pathway (doesn't work)
+## (one_effect_clusters <- cluster_pat(value_mat = effect_mat[,1], type = "pam", num_clusters = 2))
 
 ############################################################
 ## 4. Fit survival curve based on a clustering
@@ -196,7 +199,11 @@ fit_surv <- function(clusters, clin_data, plot = F) {
     clusters <- clusters[names(clusters) %in% rownames(clin_data)]
     ## 2. produce survival object
     clin_surv <- produce_clin_surv(clin_data = clin_data)
-    ## 3. add cluster to clinical
+    ## 3. add cluster to clinical and status
+    clin_data$status <- ifelse(clin_data$vitalstatus == "Alive", 0, 1)
+    clin_data$time <- clin_data$daystolastfollowup
+    ## then insert the survival time
+    clin_data$time[is.na(clin_data$time)] <- clin_data$daystodeath[!is.na(clin_data$daystodeath)]
     clin_data$cluster <- clusters
     ## 3. Optionally plot survival curves
     if (plot) {
@@ -215,9 +222,9 @@ fit_surv <- function(clusters, clin_data, plot = F) {
     return(survival::survdiff(survival::Surv(time, status) ~ cluster, data = clin_data, rho = 0))
 }
 
-fit_surv(clin_data = clin_data, clusters = fil_effect_clusters, plot = T)
-fit_surv(clin_data = clin_data, clusters = fil_fdr_clusters, plot = T)
-fit_surv(clin_data = clin_data, clusters = one_effect_clusters, plot = T)
+## fit_surv(clin_data = clin_data, clusters = fil_effect_clusters, plot = T)
+## fit_surv(clin_data = clin_data, clusters = fil_fdr_clusters, plot = T)
+## fit_surv(clin_data = clin_data, clusters = one_effect_clusters, plot = T)
 
 ############################################################
 ## 4.2 Extract p-value from survival object
@@ -228,9 +235,9 @@ get_surv_pvalue <- function(surv_diff) {
     pchisq(surv_diff$chisq, df = df, lower.tail = F)
 }
 
-(surv_diff <- fit_surv(clin_data = clin_data, clusters = fil_effect_clusters, plot = F))
-get_surv_pvalue(surv_diff)
-surv_diff <- fit_surv(clin_data = clin_data, clusters = one_effect_clusters, plot = F)
+## (surv_diff <- fit_surv(clin_data = clin_data, clusters = fil_effect_clusters, plot = F))
+## get_surv_pvalue(surv_diff)
+## surv_diff <- fit_surv(clin_data = clin_data, clusters = one_effect_clusters, plot = F)
 
 ############################################################
 ## 5. Wrappers to fit multiple survival curves, one per pathway (may want to generalize later)
@@ -248,43 +255,47 @@ get_pathway_pvalue <- function(value_mat, clin_data, type, num_clusters, ...){
 ## 6. Select pathways that produce distinct survival curves
 
 ## two clusters
-two_clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat, clin_data = clin_data, type = "pam", num_clusters = 2)
-two_clust_pvalue <- sort(two_clust_pvalue)
-hist(two_clust_pvalue)
-any(two_clust_pvalue < 0.05)
-hits <- names(two_clust_pvalue)[two_clust_pvalue < 0.05]
-sum(two_clust_pvalue < 0.05)/length(two_clust_pvalue)
+## two_clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat, clin_data = clin_data, type = "pam", num_clusters = 2)
+## two_clust_pvalue <- sort(two_clust_pvalue)
+## hist(two_clust_pvalue)
+## any(two_clust_pvalue < 0.05)
+## hits <- names(two_clust_pvalue)[two_clust_pvalue < 0.05]
+## sum(two_clust_pvalue < 0.05)/length(two_clust_pvalue)
 
-tmp_id <- names(which.min(two_clust_pvalue))
-tmp_data <- scores_list[[1]]
-tmp_data[tmp_id,]
-tmp_data[hits,]
+## tmp_id <- names(which.min(two_clust_pvalue))
+## tmp_data <- scores_list[[1]]
+## tmp_data[tmp_id,]
+## tmp_data[hits,]
 
-tmp_data[tmp_id,]
-
-(one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,tmp_id], type = "pam", num_clusters = 2))
-fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-
-(one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,hits[2]], type = "pam", num_clusters = 2))
-fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-
-## three clusters
-num_clusters = 3
-three_clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat,
-                                       clin_data = clin_data, type = "pam", num_clusters = num_clusters)
-three_clust_pvalue <- sort(three_clust_pvalue)
-hist(three_clust_pvalue)
-any(three_clust_pvalue < 0.05)
-hits <- names(three_clust_pvalue)[three_clust_pvalue < 0.05]
-sum(three_clust_pvalue < 0.05)/length(three_clust_pvalue)
-
-(tmp_id <- names(which.min(three_clust_pvalue)))
-tmp_data <- scores_list[[1]]
-tmp_data[tmp_id,]
-tmp_data[hits,]
-
-(one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,tmp_id], type = "pam", num_clusters = num_clusters))
-fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-
-(one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,hits[2]], type = "pam", num_clusters = num_clusters))
-fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
+## tmp_data[tmp_id,]
+## 
+## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,tmp_id], type = "pam", num_clusters = 2))
+## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
+## 
+## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,hits[2]], type = "pam", num_clusters = 2))
+## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
+## 
+## p.adjust(p = two_clust_pvalue, "fdr")
+## 
+## ## three clusters
+## num_clusters = 3
+## three_clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat,
+##                                        clin_data = clin_data, type = "pam", num_clusters = num_clusters)
+## three_clust_pvalue <- sort(three_clust_pvalue)
+## hist(three_clust_pvalue)
+## any(three_clust_pvalue < 0.05)
+## hits <- names(three_clust_pvalue)[three_clust_pvalue < 0.05]
+## sum(three_clust_pvalue < 0.05)/length(three_clust_pvalue)
+## 
+## (tmp_id <- names(which.min(three_clust_pvalue)))
+## tmp_data <- scores_list[[1]]
+## tmp_data[tmp_id,]
+## tmp_data[hits,]
+## 
+## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,tmp_id], type = "pam", num_clusters = num_clusters))
+## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
+## 
+## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,hits[2]], type = "pam", num_clusters = num_clusters))
+## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
+## 
+## p.adjust(p = three_clust_pvalue, "fdr")

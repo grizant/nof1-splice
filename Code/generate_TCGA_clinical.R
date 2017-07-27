@@ -8,11 +8,11 @@
 library(TCGA2STAT)
 
 #### 2. Manually list desired data sets
-tcga_ids <- c("THCA", "COAD", "READ", "LUSC", "LUAD", "PRAD", "BLCA", "UCEC")
+tcga_ids <- c("THCA", "COADREAD", "LUSC", "LUAD", "PRAD", "BLCA", "UCEC")
 
 #### 3. Loop through and save paired clinical data nicely
 
-## tmp_id <- tcga_ids[3]
+## tmp_id <- tcga_ids[2]
 for (tmp_id in tcga_ids) {
 
     tmp_data <- getTCGA(disease = tmp_id, data.type="RNASeq2", clinical = TRUE)

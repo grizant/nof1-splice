@@ -103,7 +103,7 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs 
 ## 3. Gene-to-pathway functions
 
 ## transform gene-level expression to pathway level
-transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), ...) {
+transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, ...) {
     ### 1. Structure gene set definitions
     ## read in gene set (pathway) annotation
     annot_data <- read.delim2(file = annot_file)
@@ -245,7 +245,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 
         ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(mean(fil_odds), sd(fil_odds)))
         suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
-                                                      pct0 = 1/4, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
+                                                      pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
         (tmp_upper <- tmp_locfdr$z.2[2])
         ## then indicate the hits the hits
         ## tmp_hits <- names(avg_dist)[avg_dist >= tmp_upper]

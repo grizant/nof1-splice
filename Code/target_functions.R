@@ -137,7 +137,8 @@ summarize_target_data <- function(target_data) {
     ##     (target_capture_rate <- sum(target_data$target_capture)/nrow(target_data))
     ## 
     ## return as a data frame
-    data.frame(med_scored = median(target_data$num_scored),
+    data.frame(num_pat = nrow(target_data),
+               med_scored = median(target_data$num_scored),
                med_hits = median(target_data$num_hits),
                med_hit_perc = round(median(target_data$num_hits/target_data$num_scored)*100,2),
                med_target_rank = median(target_data$target_rank),

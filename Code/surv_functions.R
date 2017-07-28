@@ -191,6 +191,7 @@ cluster_pat <- function(value_mat, type = c("sc", "pam"), num_clusters = NULL, m
 ## 4. Fit survival curve based on a clustering
 
 ## clusters = fil_effect_clusters
+## clusters <- top_clust
 ## clusters = fil_fdr_clusters
 ## plot = F
 
@@ -210,16 +211,26 @@ fit_surv <- function(clusters, clin_data, plot = F) {
         sf_survfit <- survival::survfit(clin_surv ~ cluster, data = clin_data)
         sf_tidy = broom::tidy(sf_survfit)
         mx = max(sf_tidy$n.censor)
-        plot(ggplot2::ggplot(sf_tidy, aes(time, estimate, fill = strata)) + 
+        p0 <- ggplot2::ggplot(sf_tidy, aes(time, estimate, fill = strata)) + 
             geom_line() +
             geom_point(aes(shape = as.factor(n.censor)), size = 3) + 
             scale_shape_manual(values=c(NA, 1:mx))+
-            geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25) + 
+            ## geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25) + 
             xlab("days") + 
-            ylab("Proportion Survival"))
+            ylab("Proportion Survival") +
+            background_grid(major = "xy", minor = "none") +
+            ## theme_bw() +
+            theme(legend.position = "none")
     }
     ## 4. Log-rank test
-    return(survival::survdiff(survival::Surv(time, status) ~ cluster, data = clin_data, rho = 0))
+    surv_diff <- survival::survdiff(survival::Surv(time, status) ~ cluster, data = clin_data, rho = 0)
+    ## 5. return plot also if desired
+    if (plot) {
+        to_return <- list(surv = surv_diff, plot = p0)
+    } else {
+        to_return <- surv_diff
+    }
+    return(to_return)
 }
 
 ## fit_surv(clin_data = clin_data, clusters = fil_effect_clusters, plot = T)

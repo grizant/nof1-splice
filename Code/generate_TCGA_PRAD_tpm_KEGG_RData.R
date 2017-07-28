@@ -9,6 +9,8 @@ setwd("~/Dropbox/Splice-n-of-1-pathways")
 
 load("Data/prad_iso_paired_tpm.RData")
 
+length(unique(prad_iso$geneSymbol))
+
 ################################
 ## 3. Load gene set definitions to subset iso_data (makes computation more manageable)
 kegg <- read.delim2("~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt")

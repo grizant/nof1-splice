@@ -133,7 +133,7 @@ produce_clin_surv <- function(clin_data) {
 ## type = "pam"
 ## num_clusters = 2
 
-cluster_pat <- function(value_mat, type = c("sc", "pam"), num_clusters = NULL, min_nj = 4, max_clusters = 5) {
+cluster_pat <- function(value_mat, type = "pam", num_clusters = 2, min_nj = 4, max_clusters = 5) {
     if (type == "sc") {
         ## Spectral clustering (SC) using the eigengap heuristic
         ## only works for multiple pathways
@@ -208,6 +208,7 @@ fit_surv <- function(clusters, clin_data, plot = F) {
     clin_data$cluster <- clusters
     ## 3. Optionally plot survival curves
     if (plot) {
+        require(cowplot)
         sf_survfit <- survival::survfit(clin_surv ~ cluster, data = clin_data)
         sf_tidy = broom::tidy(sf_survfit)
         mx = max(sf_tidy$n.censor)
@@ -218,7 +219,7 @@ fit_surv <- function(clusters, clin_data, plot = F) {
             ## geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25) + 
             xlab("days") + 
             ylab("Proportion Survival") +
-            background_grid(major = "xy", minor = "none") +
+            cowplot::background_grid(major = "xy", minor = "none") +
             ## theme_bw() +
             theme(legend.position = "none")
     }
@@ -263,50 +264,37 @@ get_pathway_pvalue <- function(value_mat, clin_data, type, num_clusters, ...){
 }
 
 ############################################################
-## 6. Select pathways that produce distinct survival curves
+## 6. Comparison to standards
 
-## two clusters
-## two_clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat, clin_data = clin_data, type = "pam", num_clusters = 2)
-## two_clust_pvalue <- sort(two_clust_pvalue)
-## hist(two_clust_pvalue)
-## any(two_clust_pvalue < 0.05)
-## hits <- names(two_clust_pvalue)[two_clust_pvalue < 0.05]
-## sum(two_clust_pvalue < 0.05)/length(two_clust_pvalue)
+## helper function
 
-## tmp_id <- names(which.min(two_clust_pvalue))
-## tmp_data <- scores_list[[1]]
-## tmp_data[tmp_id,]
-## tmp_data[hits,]
+## tmp_genes <- sample( unique(iso_data$geneSymbol),  size = num_genes )
 
-## tmp_data[tmp_id,]
-## 
-## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,tmp_id], type = "pam", num_clusters = 2))
-## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-## 
-## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,hits[2]], type = "pam", num_clusters = 2))
-## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-## 
-## p.adjust(p = two_clust_pvalue, "fdr")
-## 
-## ## three clusters
-## num_clusters = 3
-## three_clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat,
-##                                        clin_data = clin_data, type = "pam", num_clusters = num_clusters)
-## three_clust_pvalue <- sort(three_clust_pvalue)
-## hist(three_clust_pvalue)
-## any(three_clust_pvalue < 0.05)
-## hits <- names(three_clust_pvalue)[three_clust_pvalue < 0.05]
-## sum(three_clust_pvalue < 0.05)/length(three_clust_pvalue)
-## 
-## (tmp_id <- names(which.min(three_clust_pvalue)))
-## tmp_data <- scores_list[[1]]
-## tmp_data[tmp_id,]
-## tmp_data[hits,]
-## 
-## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,tmp_id], type = "pam", num_clusters = num_clusters))
-## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-## 
-## (one_effect_clusters <- cluster_pat(value_mat = fil_effect_mat[ ,hits[2]], type = "pam", num_clusters = num_clusters))
-## fit_surv(clusters = one_effect_clusters, clin_data = clin_data, plot = T)
-## 
-## p.adjust(p = three_clust_pvalue, "fdr")
+clust_surv_pvalue <- function(tmp_genes, iso_data, clin_data, ...) {
+    tmp_mat <- as.matrix(t(iso_data[iso_data$geneSymbol %in% tmp_genes, -(1:2)]))
+    tmp_clust <- cluster_pat(tmp_mat)
+    ## fit survival objects on observed data
+    tmp_surv <- fit_surv(clusters = tmp_clust, clin_data, plot = F)
+    ## tmp_surv$plot
+    return(get_surv_pvalue(tmp_surv))
+}
+
+get_empirical_pvalue <- function(pathway_genes, iso_data, clin_data, reps = 2000, ...){
+    ## subset to isoforms in gene set
+    num_genes <- length(unique(iso_data$geneSymbol[(iso_data$geneSymbol %in% pathway_genes)]))
+    ### get observed p-value
+    obs_pvalue <- clust_surv_pvalue(pathway_genes, iso_data, clin_data)
+    ## now sample of same size
+    ## find random genes
+    rand_genes_mat <- replicate(n = reps, sample( unique(iso_data$geneSymbol),  size = num_genes ))
+    ## compute p-values
+    ## system.time(rand_pvalue_mat <- apply(rand_genes, 2, clust_surv_pvalue, iso_data, clin_data)) ## 12 seconds
+    rand_pvalue <- apply(rand_genes_mat, 2, clust_surv_pvalue, iso_data = iso_data, clin_data = clin_data) ## 12 seconds for 65 genes
+    ## hist(rand_pvalue_mat)
+    ## get proportion smaller
+    empirical_pvalue <- sum(rand_pvalue <= obs_pvalue)/reps
+    ## now find the p-values
+    return(empirical_pvalue)
+}
+
+

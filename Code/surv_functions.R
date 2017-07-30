@@ -208,18 +208,18 @@ fit_surv <- function(clusters, clin_data, plot = F) {
     clin_data$cluster <- clusters
     ## 3. Optionally plot survival curves
     if (plot) {
-        require(cowplot)
+        ## require(cowplot)
         sf_survfit <- survival::survfit(clin_surv ~ cluster, data = clin_data)
         sf_tidy = broom::tidy(sf_survfit)
         mx = max(sf_tidy$n.censor)
         p0 <- ggplot2::ggplot(sf_tidy, aes(time, estimate, fill = strata)) + 
             geom_line() +
             geom_point(aes(shape = as.factor(n.censor)), size = 3) + 
-            scale_shape_manual(values=c(NA, 1:mx))+
+            scale_shape_manual(values=c(NA, 1:mx)) +
             ## geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25) + 
             xlab("days") + 
             ylab("Proportion Survival") +
-            cowplot::background_grid(major = "xy", minor = "none") +
+            background_grid(major = "xy", minor = "none") +
             ## theme_bw() +
             theme(legend.position = "none")
     }

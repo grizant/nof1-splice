@@ -13,6 +13,10 @@ clin_data <- clin_data[rownames(clin_data) %in% patients,]
 ## load survival analysis functions
 source("~/Dropbox/Splice-n-of-1-pathways/Code/surv_functions.R")
 
+kegg <- nof1::read_gene_set(file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt")
+kegg_desc <- read.delim("~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", stringsAsFactors = F)
+rownames(kegg_desc) <- as.character(kegg_desc$path_id)
+
 ## explore clinical
 table(clin_data$vitalstatus)
 
@@ -25,7 +29,7 @@ fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_
 ## filter to only those pathways found dysregulated in at least one patient
 fil_effect_mat <- filter_value_mat(effect_mat = effect_mat, fdr_mat = fdr_mat, type = "pathway_score")
 fil_fdr_mat <- filter_value_mat(effect_mat = effect_mat, fdr_mat = fdr_mat, type = "fdr_value")
-str(fil_effect_mat) ## 100 pathways now
+str(fil_effect_mat) ## 101 pathways now
 str(fil_fdr_mat)
 
 ############################################################
@@ -46,22 +50,34 @@ sum(clust_pvalue < threshold)/length(clust_pvalue)
 ## retrive the hit pathway description 
 tmp_data <- scores_list[[1]]
 tmp_data[hits,]
+kegg_desc[hits,]
 
 #### try fdr adjustments
 ## standard adjustment
 ## p.adjust(p = clust_pvalue, "fdr")
 
 ## locFDR works and gets around the permutation approach!
+hist(clust_pvalue, breaks = 30)
 transformed_pvalue <- qnorm(clust_pvalue)
-eps <- 0.001
+eps <- 0.0001
 transformed_pvalue[is.infinite(transformed_pvalue)] <- max(transformed_pvalue[!is.infinite(transformed_pvalue)], na.rm = T) + eps
+hist(transformed_pvalue, breaks = 30)
 
-tmp_locfdr <- locfdr::locfdr(zz = transformed_pvalue, bre = ceiling(length(clust_pvalue)/8), df = 4, pct = 0, pct0 = 1/64, nulltype = 1, plot = 1)
-tmp_locfdr
+tmp_locfdr <- locfdr::locfdr(zz = clust_pvalue, bre = ceiling(length(clust_pvalue)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1)
+
+tmp_locfdr <- locfdr::locfdr(zz = transformed_pvalue, bre = ceiling(length(clust_pvalue)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1)
+
+sum(transformed_pvalue < tmp_locfdr$z.2[1])
 
 ## 4 hits
+threshold <- 0.5
 top_hits <- names(transformed_pvalue)[transformed_pvalue < tmp_locfdr$z.2[1]]
+top_hits <- names(transformed_pvalue)[tmp_locfdr$fdr < threshold]
 tmp_data[top_hits,] ## top hits are all interesting including staph infection!
+tmp_locfdr$fdr[1:length(top_hits)]
+
+hits <- names(transformed_pvalue)[1:4]
+kegg_desc[hits,]
 
 ######################################################
 ## explore top hits
@@ -118,10 +134,12 @@ i <- 3
 (top_clust <- cluster_pat(top_or, type = "pam", num_clusters = 2))
 table(top_clust)
 three_clust <- top_clust
-top_surv <- fit_surv(clusters = top_clust, clin_data = clin_data, plot = T)
+(top_surv <- fit_surv(clusters = top_clust, clin_data = clin_data, plot = T))
 (top_desc <- tmp_data[hits[i], "pathway_desc"])
+top_desc <- gsub("Staphylococcus", "Staph", top_desc)
 (s3 <- top_surv$plot + labs(title = paste("Cluster via '", top_desc, "'", sep="")))
-## cluster 1 is better
+## cluster 2 is better!!
+top_clust <- ifelse(top_clust == 1, 2, 1)
 ## odds ratio within top pathway by cluster
 top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels = c("Better", "Worse")))
 (p3 <- ggplot(data = top_data, aes(x = cluster, y = odds_ratio)) +
@@ -141,8 +159,9 @@ i <- 4
 table(top_clust)
 four_clust <- top_clust
 top_surv <- fit_surv(clusters = top_clust, clin_data = clin_data, plot = T)
+target_clust <- four_clust
 (top_desc <- tmp_data[hits[i], "pathway_desc"])
-top_desc <- "Staph aureus infection"
+## top_desc <- "Staph aureus infection"
 (s4 <- top_surv$plot + labs(title = paste("Cluster via '", top_desc, "'", sep="")))
 ## cluster 1 is better
 ## odds ratio within top pathway by cluster
@@ -159,12 +178,10 @@ top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels =
 
 ## see agreement in clustering
 
-
-for (tmp_clust in list(two_clust, three_clust, four_clust)) {
-    print(sum(one_clust == tmp_clust)/length(one_clust)*100)
+for (tmp_clust in list(one_clust, two_clust, three_clust)) {
+    print(sum(target_clust == tmp_clust)/length(target_clust)*100)
 }
 
-.
 ##################
 ### combine together
 

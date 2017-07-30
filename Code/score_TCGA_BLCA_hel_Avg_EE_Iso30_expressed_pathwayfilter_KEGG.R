@@ -17,7 +17,8 @@ source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
 #### 2. Restructure iso data into a patient-wise list for parallel processing
 
 ## Retrieve patient IDs
-patients_chr <- unique(substring(names(blca_iso_kegg_data[,-(1:4)]), 1, 12))
+pat_col <- grep("TCGA", x = names(blca_iso_kegg_data))
+patients_chr <- unique(substring(names(blca_iso_kegg_data[pat_col]), 1, 12))
 
 ## create a empty list
 iso_kegg_list <- vector(mode = "list", length =  length(patients_chr))
@@ -71,6 +72,12 @@ system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform
 
 ## save the object
 save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+
+system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EEv2", gene_method = "hellinger")) ## 1394 seconds (23 min)
+
+## save the object
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EEv2_Iso30_expressiod_pathwayfilter_KEGG_29july2017.RData")
+
 
 ## close cluster
 parallel::stopCluster(cl = cl)

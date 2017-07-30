@@ -217,8 +217,8 @@ fit_surv <- function(clusters, clin_data, plot = F) {
             geom_point(aes(shape = as.factor(n.censor)), size = 3) + 
             scale_shape_manual(values=c(NA, 1:mx)) +
             ## geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25) + 
-            xlab("days") + 
-            ylab("Proportion Survival") +
+            xlab("Days") + 
+            ylab("Proportion survival") +
             background_grid(major = "xy", minor = "none") +
             ## theme_bw() +
             theme(legend.position = "none")

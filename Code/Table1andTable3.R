@@ -52,6 +52,15 @@ target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer
 rownames(to_return) <- "LUSC"
 (all_data <- rbind(all_data, to_return))
 
+## ## 5.2 LUSC EEv2
+## load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_EEv2_KEGG_29july2017.RData")
+## (target <- names(cancer_pathways)[grep("Non-small cell lung", cancer_pathways)])
+## target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
+## (to_return <- summarize_target_data(target_data))
+## rownames(to_return) <- "LUSCv2"
+## (all_data <- rbind(all_data, to_return))
+## 
+
 ## 6. LUAD
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUAD_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 (target <- names(cancer_pathways)[grep("Non-small cell lung", cancer_pathways)])

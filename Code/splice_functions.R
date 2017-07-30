@@ -102,18 +102,42 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs 
 ############################################################
 ## 3. Gene-to-pathway functions
 
+## tmp_genes <- annot_list[[sample(1:length(annot_list), 1)]]
+## helper to compute odds ratio
+get_OR <- function(tmp_genes, dist_data, genes_range = c(15,500)) {
+            measured_genes <- tmp_genes[tmp_genes %in% rownames(dist_data)]
+            ## genes outside pathway
+            not_genes <- rownames(dist_data)[!(rownames(dist_data) %in% measured_genes)]
+            ## impose genes range
+            if (length(measured_genes) >= genes_range[1] & length(measured_genes) <= genes_range[2]) {
+                ## calculate counts
+                (x11 <- sum(dist_data[measured_genes, "call"]))
+                (x21 <- sum(dist_data[measured_genes, "call"] == 0))
+                (x12 <- sum(dist_data[not_genes, "call"]))
+                (x22 <- sum(dist_data[not_genes, "call"] == 0))
+                ## sum(x11, x21, x12, x22) == nrow(dist_data)
+                ## compute FET
+                ## tmp_fet <- fisher.test(x = matrix( c(x11, x21, x12, x22), nrow = 2, ncol = 2))
+                ## to_return <- tmp_fet$estimate
+                ## names(to_return) <- NULL
+                ## compute odds ratio manually
+                (to_return <-  (x11/x21)/(x12/x22))
+            } else to_return <- NA
+            return(list(odds_ratio = to_return, num_genes = length(measured_genes)))
+}
+
 ## transform gene-level expression to pathway level
-transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, ...) {
+transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, reps = 2000, fdr_threshold = 0.2 , ...) {
     ### 1. Structure gene set definitions
     ## read in gene set (pathway) annotation
-    annot_data <- read.delim2(file = annot_file)
+    annot_data <- read.delim2(file = annot_file, stringsAsFactors = F)
     ## restructure into a list of pathways
-    annot_list <- split(annot_data, annot_data$path_id)
+    annot_list <- split(annot_data$symbol, annot_data$path_id)
     ## store the number of genes annotated
-    annot_lengths <- unlist(lapply(annot_list, function(tmp_set) {dim(tmp_set)[1]}))
+    annot_lengths <- unlist(lapply(annot_list, function(tmp_genes) {length(unique(tmp_genes))}))
     ## count genes actually measured
-    measured_lengths <- unlist(lapply(annot_list, function(tmp_set) {
-        tmp_genes <- as.character(tmp_set$symbol)
+    measured_lengths <- unlist(lapply(annot_list, function(tmp_genes) {
+        tmp_genes <- as.character(tmp_genes)
         sum(tmp_genes %in% names(gene_dist))
     }))
 
@@ -123,7 +147,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ###  2.1.1 Find the average distance for each pathway
         ## tmp_set <- annot_list[["GO:0000003"]]
         avg_dist <- unlist(lapply(annot_list, function(tmp_set) {
-            tmp_genes <- as.character(tmp_set$symbol)
+            tmp_genes <- as.character(tmp_set)
             measured_genes <- tmp_genes[tmp_genes %in% names(gene_dist)]
             ## impose genes range
             if (length(measured_genes) < genes_range[1] | length(measured_genes) > genes_range[2]) {
@@ -166,34 +190,6 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## hist(gene_dist, breaks = 120)
         gene_clusters <- kmeans(x = gene_dist, 2)
         ## gene_clusters$centers
-        ## remove dist = 1 (or near it) or 0 due to fitting difficulties.
-        ## ... give 1 a positive call and 0 negative call manually later
-        ##tolerance <- .Machine$double.eps^0.5
-        ##dist_one <- which(abs(gene_dist - 1) < tolerance)
-        ##dist_zero <- which(abs(gene_dist) < tolerance)
-        ##remove_index <- c(dist_one, dist_zero)
-        #### now filter
-        ##transformed_dist <- gene_dist[-remove_index]
-        #### transformed_dist <- ecdf(transformed_dist)(transformed_dist)
-        ##transformed_dist <- qnorm(transformed_dist)
-        ##summary(transformed_dist)
-        #### replace Inf (corresponding to 1) with max + esp
-        #### eps <- 0.001
-        #### transformed_dist[is.infinite(transformed_dist)] <-
-        #### max(transformed_dist[!is.infinite(transformed_dist)], na.rm = T) + eps
-        #### now transform
-        #### tail(sort(transformed_dist))
-        ##hist(transformed_dist, 120)
-        #### summary(transformed_dist)
-        ##tmp_locfdr <- locfdr::locfdr(zz = transformed_dist, bre = 120, df = 7, pct = 0, nulltype = 1, plot = 4,
-        ##                             mlests = c(mean(transformed_dist), sd(transformed_dist)))
-        #### retrieve hits
-        ##tmp_upper <- tmp_locfdr$z.2[2]
-        ##alt_genes <- names(which(transformed_dist > tmp_upper))
-        ##alt_genes <- c(alt_genes, names(dist_one))
-        #### Apply calls to gene dist despite filtering.
-        ## This may be anti-conservative/conservative depending on the ones and zeros.
-        
         dist_data <- data.frame(gene_dist, call = 0)
         ## dist_data[transformed_dist > tmp_upper, "call"] <- 1
         ## determine which cluster has larger center
@@ -201,35 +197,13 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         dist_data[names(gene_clusters$cluster), "call"] <- ifelse(gene_clusters$cluster == alt_center, 1, 0)
         ## table(dist_data$call)
         ## qplot(x = gene_dist, fill = factor(call), data = dist_data, bins = 120)
-        
         ## 2.2.2 enrichment
         ## tmp_set <- annot_list[[sample(1:length(annot_list), 1)]]
-        odds_ratio <- unlist(lapply(annot_list, function(tmp_set) {
-            tmp_genes <- as.character(tmp_set$symbol)
-            measured_genes <- tmp_genes[tmp_genes %in% names(gene_dist)]
-            ## genes outside pathway
-            not_genes <- rownames(dist_data)[!(rownames(dist_data) %in% measured_genes)]
-            ## impose genes range
-            if (length(measured_genes) >= genes_range[1] & length(measured_genes) <= genes_range[2]) {
-                ## calculate counts
-                (x11 <- sum(dist_data[measured_genes, "call"]))
-                (x21 <- sum(dist_data[measured_genes, "call"] == 0))
-                (x12 <- sum(dist_data[not_genes, "call"]))
-                (x22 <- sum(dist_data[not_genes, "call"] == 0))
-                ## sum(x11, x21, x12, x22) == nrow(dist_data)
-                ## compute FET
-                ## tmp_fet <- fisher.test(x = matrix( c(x11, x21, x12, x22), nrow = 2, ncol = 2))
-                ## to_return <- tmp_fet$estimate
-                ## names(to_return) <- NULL
-                ## compute odds ratio manually
-                (to_return <-  (x11/x21)/(x12/x22))
-            } else to_return <- NA
-            return(to_return)
-        }))
-        
+        odds_ratio <- lapply(annot_list, get_OR, dist_data)
+        num_genes <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$num_genes}))
+        odds_ratio <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$odds_ratio}))
         ## hist(odds_ratio, breaks = 20)
         ## summary(odds_ratio)
-        
         ## 2.2.3 local FDR at the pathway level, since we need to control here
         ## 1. first remove unscored pathways
         fil_odds <- odds_ratio[!is.na(odds_ratio)]
@@ -242,7 +216,6 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         outliers <- boxplot.stats(fil_odds)$out
         if (length(outliers) > 0) fil_odds <- fil_odds[!(names(fil_odds) %in% names(outliers))]
         ## hist(fil_odds, breaks = 20)
-
         ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(mean(fil_odds), sd(fil_odds)))
         suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
                                                       pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
@@ -260,10 +233,8 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
             }
         }
         ## table(tmp_call)
-
         ## 2.2.4 format the output
         to_return <- data.frame(pathway_score = odds_ratio, direction = NA, fdr_value = 1, num_genes_annot = annot_lengths, num_genes_measured = measured_lengths, row.names = names(odds_ratio), upper_fdr_threshold = tmp_upper, diff_splice_call = tmp_call, stringsAsFactors = F)
-
         ## str(tmp_locfdr)
         ## update fdr_value
         to_return[names(fil_odds), "fdr_value"] <- tmp_locfdr$fdr
@@ -274,7 +245,90 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         to_return <- to_return[order(to_return$pathway_score, decreasing = T),]
     }
     
-    
+### 2.3 Empirical resampling due to automation difficulties
+    if (method == "EEv2") {
+        ##  2.3.1 Find alternatively spliced genes across whole transcriptome
+        ## hist(gene_dist, breaks = 120)
+        gene_clusters <- kmeans(x = gene_dist, 2)
+
+        ## make calls
+        dist_data <- data.frame(gene_dist, call = 0)
+        
+        ## determine which cluster has larger center
+        alt_center <- which.max(gene_clusters$centers)
+        dist_data[names(gene_clusters$cluster), "call"] <- ifelse(gene_clusters$cluster == alt_center, 1, 0)
+        ## table(dist_data$call)
+        ## qplot(x = gene_dist, fill = factor(call), data = dist_data, bins = 120)
+        ## save for figure 1
+        ## save(dist_data, file = "~/Dropbox/splice-n-of-1-pathways/Data/Figure1_dist_data.RData")
+
+        ## 2.2.2 enrichment
+        ## tmp_set <- annot_list[[sample(1:length(annot_list), 1)]]
+        odds_list <- lapply(annot_list, get_OR, dist_data, genes_range)
+        num_genes <- unlist(lapply(odds_list, function(tmp_id) {tmp_id$num_genes}))
+        odds_ratio <- unlist(lapply(odds_list, function(tmp_id) {tmp_id$odds_ratio}))
+        ## hist(odds_ratio, breaks = 20)
+        ## save for figure 1
+        ## save(odds_ratio, file = "~/Dropbox/splice-n-of-1-pathways/Data/Figure1_odds_ratio.RData")
+        ## summary(odds_ratio)
+        
+        ## 2.2.3 resampling approach
+        ## 1. first remove unscored pathways
+        fil_odds <- odds_ratio[!is.na(odds_ratio)]
+        fil_num <- num_genes[!is.na(odds_ratio)]
+
+        ## 2. Create empirical distribution for each gene set size
+        all_num <- sort(unique(fil_num))
+
+        rand_list <- sapply(all_num, function(tmp_num) {
+            replicate(n = reps, sample(rownames(dist_data), tmp_num))
+        })
+        ## tmp_or <- fil_odds[1]
+        ## tmp_num <- fil_num[1]
+        ## tmp_mat <- rand_list[[1]]
+        rand_or_list <- lapply(rand_list, function(tmp_mat) {
+            ugly_list <- apply(tmp_mat, 2, get_OR, dist_data)
+            unlist(lapply( ugly_list, FUN = function(tmp_or) {tmp_or$odds_ratio}))
+        })
+        rand_or <- do.call("rbind",rand_or_list)
+        rownames(rand_or) <- all_num
+        
+        ## 3. format the output
+        to_return <- data.frame(pathway_score = odds_ratio, direction = NA, p_value = NA, fdr_value = NA, num_genes_annot = annot_lengths, num_genes_measured = measured_lengths, row.names = names(odds_ratio), diff_splice_call = 0, stringsAsFactors = F)
+        
+        ## 4. compute empirical p-values
+        ## tmp_list <- odds_list[[sample(1:230, 1)]]
+
+         emp_pvalue <- lapply(odds_list, function(tmp_list, rand_or) {
+             tmp_or <- tmp_list$odds_ratio
+             tmp_num <- tmp_list$num_genes
+             if (!is.na(tmp_or)) {
+                 if (any(tmp_num == rownames(rand_or))) {
+                     tmp_rand <- rand_or[rownames(rand_or) == tmp_num,]
+                     sum(tmp_rand > tmp_list$odds_ratio)/length(tmp_rand)
+                 } else NA
+             } else NA
+         }, rand_or = rand_or)
+
+        emp_pvalue <- unlist(emp_pvalue)
+        emp_fdr <- p.adjust(emp_pvalue, "fdr")
+        ## head(sort(emp_pvalue))
+        ## head(sort(emp_fdr))
+        ## str(tmp_locfdr)
+        ## update fdr_value
+        to_return[names(emp_pvalue), "p_value"] <- emp_pvalue
+        to_return[names(emp_fdr), "fdr_value"] <- emp_fdr
+        ## make call at threshold
+        valid_fdr <- emp_fdr[!is.na(emp_fdr)]
+        hits <- names(which(valid_fdr <= fdr_threshold))
+        to_return[hits, "diff_splice_call"] <- 1
+        table(to_return$diff_splice_call)
+        
+        ## head(sort(to_return$fdr_value), 50)
+        ## sort
+        to_return <- to_return[order(to_return$pathway_score, decreasing = T),]
+    }
+
     ### add pathway descriptions
     to_return$pathway_desc <- "N/A"
     if (!is.null(desc_file)) {
@@ -312,7 +366,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 ## filter based on 
 
 ## transform gene-level expression to pathway level
-transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("EE", "avg", "fet"), gene_method = c("delta", "hellinger"), remove_DEGs = F, iso_range = c(2,30), genes_range = c(15,500), ...) {
+transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("EE", "avg", "fet", "EEv2"), gene_method = c("delta", "hellinger"), remove_DEGs = F, iso_range = c(2,30), genes_range = c(15,500), ...) {
     ## i. pre-processing
     ## restructure into a list of genes
     gene_list <- split(iso_data[,-1], iso_data[,1])

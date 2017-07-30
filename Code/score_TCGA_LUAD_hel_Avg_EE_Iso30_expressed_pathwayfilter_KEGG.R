@@ -17,7 +17,9 @@ source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
 #### 2. Restructure iso data into a patient-wise list for parallel processing
 
 ## Retrieve patient IDs
-patients_chr <- unique(substring(names(luad_iso_kegg_data[,-(1:4)]), 1, 12))
+## Retrieve patient IDs
+pat_col <- grep("TCGA", x = names(luad_iso_kegg_data))
+patients_chr <- unique(substring(names(luad_iso_kegg_data[pat_col]), 1, 12))
 
 ## create a empty list
 iso_kegg_list <- vector(mode = "list", length =  length(patients_chr))

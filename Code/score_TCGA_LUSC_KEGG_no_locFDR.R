@@ -2,7 +2,7 @@
 ## and Empirical Enrichment
 ## applying filters to reduce noise
 ## AG Schissler
-## Created 27 Jul 2017
+## Created 25 Jul 2017
 
 ##############################################################################
 #### 1. Setup environment
@@ -17,7 +17,7 @@ source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
 #### 2. Restructure iso data into a patient-wise list for parallel processing
 
 ## Retrieve patient IDs
-patients_chr <- unique(substring(names(lusc_iso_kegg_data[,-(1:4)]), 1, 12))
+patients_chr <- unique(substring(names(lusc_iso_kegg_data[,-(1:2)]), 1, 12))
 
 ## create a empty list
 iso_kegg_list <- vector(mode = "list", length =  length(patients_chr))
@@ -33,6 +33,11 @@ for (tmp_pat in patients_chr) {
 
 ##############################################################################
 #### 3. Setup parallel processing
+
+## test on one
+iso_data <- iso_kegg_list[[1]]
+system.time(one_pat_scores <- transform_iso_pathway(iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EEv2", gene_method = "hellinger"))
+table(one_pat_scores$diff_splice_call)
 
 ## load parallelization library
 library(parallel)
@@ -50,18 +55,14 @@ parallel::clusterEvalQ(cl, expr = source("~/Dropbox/Splice-n-of-1-pathways/Code/
 parallel::clusterEvalQ(cl, expr = library(locfdr))
 
 ## run on a small subset
-set.seed(444)
+set.seed(44444)
 tmp_index <- sample(1:length(patients_chr), size = min(c(num_cores, length(patients_chr))))
 ## 
 tmp_list <- iso_kegg_list[tmp_index]
-system.time(avg_scores <- parallel::parLapply(cl = cl, tmp_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", pct0 = 1/20))
+system.time(avg_scores <- parallel::parLapply(cl = cl, tmp_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EEv2", gene_method = "hellinger"))
 ## 
-scores_list <- avg_scores
-(num_hits <- unlist(lapply(scores_list, function(tmp_data){
-    sum(tmp_data$diff_splice_call, na.rm = T)
-})))
+## scores_list <- avg_scores
 
-.
 ##############################################################################
 #### 4. Score all patients
 
@@ -71,10 +72,10 @@ scores_list <- avg_scores
 ## save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_hel_avg_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 
 ## now score by Empirical Enrichment
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 18 seconds
+system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EEv2", gene_method = "hellinger")) ## 71 min
 
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_EEv2_KEGG_29july2017.RData")
 
 ## close cluster
 parallel::stopCluster(cl = cl)
@@ -82,6 +83,7 @@ parallel::stopCluster(cl = cl)
 ##############################################################################
 #### 5. Explore quickly
 
+length(scores_list)
 (num_hits <- unlist(lapply(scores_list, function(tmp_data){
     sum(tmp_data$diff_splice_call, na.rm = T)
 })))

@@ -52,7 +52,8 @@ get_target_info <- function(scores_list, target, cancer_ids, fdr = 0.2, one_side
                 cancer_data <- tmp_data[cancer_ids, ]
                 cancer_capture <- any(cancer_data$fdr_value <= fdr & cancer_data$pathway_score > 1)
                 ## 4. return summarize as a data frame
-                to_return <- data.frame(num_scored, num_hits, cancer_capture, target_capture, target_rank)
+                to_return <- data.frame(num_scored, num_hits, cancer_capture, target_capture, target_rank,
+                                        OR = tmp_data[target, "pathway_score"])
             } else {
                 num_scored <- sum(!is.na(tmp_data$pathway_score))
                 num_hits <- sum(tmp_data$fdr_value <= fdr)
@@ -65,7 +66,8 @@ get_target_info <- function(scores_list, target, cancer_ids, fdr = 0.2, one_side
                 cancer_data <- tmp_data[cancer_ids, ]
                 cancer_capture <- any(cancer_data$fdr_value <= fdr)
                 ## 4. return summarize as a data frame
-                to_return <- data.frame(num_scored, num_hits, cancer_capture, target_capture, target_rank)
+                to_return <- data.frame(num_scored, num_hits, cancer_capture, target_capture, target_rank,
+                                        OR = tmp_data[target, "pathway_score"])
             }
             return(to_return)
         })

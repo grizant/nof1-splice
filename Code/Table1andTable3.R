@@ -6,6 +6,9 @@
 #### Source validation functions
 
 source("~/Dropbox/Splice-n-of-1-pathways/Code/target_functions.R")
+source("~/Dropbox/Splice-n-of-1-pathways/Code/surv_functions.R")
+
+set.seed(44)
 
 ##load and aggregate manually
 all_data <- NULL
@@ -16,15 +19,60 @@ load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pa
 (cancer_ids <- names(cancer_pathways))
 (target <- names(cancer_pathways)[grep("Bladder", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-(to_return <- summarize_target_data(target_data))
+## null pathway assessment
+effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
+## X = convert_to_list(effect_mat)[[1]]
+## Y = convert_to_list(fdr_mat)[[1]]
+fdr_threshold <- 0.2
+call_mat <- fil_index <- mapply(function(X, Y){
+    as.numeric(X > 1 & Y < fdr_threshold) ## Odds ratio > 1 and fdr > 20%
+}, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
+## null target pathway
+## null 9 pathways
+rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
+    unname(sample(tmp_pat,1))
+}))
+## summary
+rand_capture <- apply(rand_mat, 2, function(tmp_col) {sum(tmp_col)/length(tmp_col)})
+rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
+if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
+## at least one of nine? model as binominal even though not independent
+(rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
+## combine
+(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
 rownames(to_return) <- "BLCA"
 (all_data <- rbind(all_data, to_return))
+
 
 ## 2. THCA
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_THCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 (target <- names(cancer_pathways)[grep("Thyroid", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-(to_return <- summarize_target_data(target_data))
+## null pathway assessment
+effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
+## X = convert_to_list(effect_mat)[[1]]
+## Y = convert_to_list(fdr_mat)[[1]]
+fdr_threshold <- 0.2
+call_mat <- fil_index <- mapply(function(X, Y){
+    as.numeric(X > 1 & Y < fdr_threshold) ## Odds ratio > 1 and fdr > 20%
+}, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
+## null target pathway
+## null 9 pathways
+rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
+    unname(sample(tmp_pat,1))
+}))
+## summary
+rand_capture <- apply(rand_mat, 2, function(tmp_col) {sum(tmp_col)/length(tmp_col)})
+rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
+if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
+## at least one of nine? model as binominal even though not independent
+(rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
+## combine
+(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
 rownames(to_return) <- "THCA"
 (all_data <- rbind(all_data, to_return))
 
@@ -32,7 +80,29 @@ rownames(to_return) <- "THCA"
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_UCEC_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 (target <- names(cancer_pathways)[grep("Endo", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-(to_return <- summarize_target_data(target_data))
+## null pathway assessment
+effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
+## X = convert_to_list(effect_mat)[[1]]
+## Y = convert_to_list(fdr_mat)[[1]]
+fdr_threshold <- 0.2
+call_mat <- fil_index <- mapply(function(X, Y){
+    as.numeric(X > 1 & Y < fdr_threshold) ## Odds ratio > 1 and fdr > 20%
+}, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
+## null target pathway
+## null 9 pathways
+rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
+    unname(sample(tmp_pat,1))
+}))
+## summary
+rand_capture <- apply(rand_mat, 2, function(tmp_col) {sum(tmp_col)/length(tmp_col)})
+rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
+if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
+## at least one of nine? model as binominal even though not independent
+(rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
+## combine
+(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
 rownames(to_return) <- "UCEC"
 (all_data <- rbind(all_data, to_return))
 
@@ -40,7 +110,29 @@ rownames(to_return) <- "UCEC"
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_PRAD_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 (target <- names(cancer_pathways)[grep("Prostate", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-(to_return <- summarize_target_data(target_data))
+## null pathway assessment
+effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
+## X = convert_to_list(effect_mat)[[1]]
+## Y = convert_to_list(fdr_mat)[[1]]
+fdr_threshold <- 0.2
+call_mat <- fil_index <- mapply(function(X, Y){
+    as.numeric(X > 1 & Y < fdr_threshold) ## Odds ratio > 1 and fdr > 20%
+}, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
+## null target pathway
+## null 9 pathways
+rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
+    unname(sample(tmp_pat,1))
+}))
+## summary
+rand_capture <- apply(rand_mat, 2, function(tmp_col) {sum(tmp_col)/length(tmp_col)})
+rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
+if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
+## at least one of nine? model as binominal even though not independent
+(rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
+## combine
+(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
 rownames(to_return) <- "PRAD"
 (all_data <- rbind(all_data, to_return))
 
@@ -48,7 +140,29 @@ rownames(to_return) <- "PRAD"
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 (target <- names(cancer_pathways)[grep("Non-small cell lung", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-(to_return <- summarize_target_data(target_data))
+## null pathway assessment
+effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
+## X = convert_to_list(effect_mat)[[1]]
+## Y = convert_to_list(fdr_mat)[[1]]
+fdr_threshold <- 0.2
+call_mat <- fil_index <- mapply(function(X, Y){
+    as.numeric(X > 1 & Y < fdr_threshold) ## Odds ratio > 1 and fdr > 20%
+}, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
+## null target pathway
+## null 9 pathways
+rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
+    unname(sample(tmp_pat,1))
+}))
+## summary
+rand_capture <- apply(rand_mat, 2, function(tmp_col) {sum(tmp_col)/length(tmp_col)})
+rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
+if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
+## at least one of nine? model as binominal even though not independent
+(rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
+## combine
+(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
 rownames(to_return) <- "LUSC"
 (all_data <- rbind(all_data, to_return))
 
@@ -65,7 +179,29 @@ rownames(to_return) <- "LUSC"
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUAD_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
 (target <- names(cancer_pathways)[grep("Non-small cell lung", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-(to_return <- summarize_target_data(target_data))
+## null pathway assessment
+effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
+fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
+convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
+## X = convert_to_list(effect_mat)[[1]]
+## Y = convert_to_list(fdr_mat)[[1]]
+fdr_threshold <- 0.2
+call_mat <- fil_index <- mapply(function(X, Y){
+    as.numeric(X > 1 & Y < fdr_threshold) ## Odds ratio > 1 and fdr > 20%
+}, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
+## null target pathway
+## null 9 pathways
+rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
+    unname(sample(tmp_pat,1))
+}))
+## summary
+rand_capture <- apply(rand_mat, 2, function(tmp_col) {sum(tmp_col)/length(tmp_col)})
+rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
+if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
+## at least one of nine? model as binominal even though not independent
+(rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
+## combine
+(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
 rownames(to_return) <- "LUAD"
 (all_data <- rbind(all_data, to_return))
 

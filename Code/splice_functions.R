@@ -103,6 +103,7 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs 
 ## 3. Gene-to-pathway functions
 
 ## tmp_genes <- annot_list[[sample(1:length(annot_list), 1)]]
+## fet_pvalue = T
 ## helper to compute odds ratio
 get_OR <- function(tmp_genes, dist_data, genes_range = c(15,500)) {
             measured_genes <- tmp_genes[tmp_genes %in% rownames(dist_data)]
@@ -125,6 +126,33 @@ get_OR <- function(tmp_genes, dist_data, genes_range = c(15,500)) {
             } else to_return <- NA
             return(list(odds_ratio = to_return, num_genes = length(measured_genes)))
 }
+
+## tmp_genes <- annot_list[[sample(1:length(annot_list), 1)]]
+tmp_genes <- annot_list[["hsa03430"]]
+## helper to compute odds ratio
+get_fet_pvalue <- function(tmp_genes, dist_data, genes_range = c(15,500), alternative = "greater") {
+            measured_genes <- tmp_genes[tmp_genes %in% rownames(dist_data)]
+            ## genes outside pathway
+            not_genes <- rownames(dist_data)[!(rownames(dist_data) %in% measured_genes)]
+            ## impose genes range
+            if (length(measured_genes) >= genes_range[1] & length(measured_genes) <= genes_range[2]) {
+                ## calculate counts
+                (x11 <- sum(dist_data[measured_genes, "call"]))
+                (x21 <- sum(dist_data[measured_genes, "call"] == 0))
+                (x12 <- sum(dist_data[not_genes, "call"]))
+                (x22 <- sum(dist_data[not_genes, "call"] == 0))
+                ## sum(x11, x21, x12, x22) == nrow(dist_data)
+                ## compute FET
+                (tmp_fet <- fisher.test(x = matrix( c(x11, x21, x12, x22), nrow = 2, ncol = 2), alternative = alternative))
+                (to_return <-  tmp_fet$p.value)
+                ## to_return <- tmp_fet$estimate
+                ## names(to_return) <- NULL
+                ## compute odds ratio manually
+                ## (to_return <-  (x11/x21)/(x12/x22))
+            } else to_return <- NA
+            return(list(p_value = to_return, num_genes = length(measured_genes)))
+}
+
 
 ## transform gene-level expression to pathway level
 transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, reps = 2000, fdr_threshold = 0.2 , ...) {
@@ -200,26 +228,55 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## 2.2.2 enrichment
         ## tmp_set <- annot_list[[sample(1:length(annot_list), 1)]]
         odds_ratio <- lapply(annot_list, get_OR, dist_data)
+        ## pvalue <- lapply(annot_list, get_fet_pvalue, dist_data)
         num_genes <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$num_genes}))
         odds_ratio <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$odds_ratio}))
+        ## pvalue <- unlist(lapply(pvalue, function(tmp_id) {tmp_id$p_value}))
         ## hist(odds_ratio, breaks = 20)
+        ## hist(pvalue, breaks = 20)
+##         hist(qnorm(pvalue, lower.tail = F), breaks = 30)
+##         head(sort(odds_ratio, decreasing = F))
+##         head(sort(pvalue, decreasing = T))
+##         tail(sort(qnorm(pvalue, lower.tail = F), decreasing = T))
+## 
+##         fil_pvalue <- trans[!is.infinite(fil_odds)]
+
         ## summary(odds_ratio)
         ## 2.2.3 local FDR at the pathway level, since we need to control here
         ## 1. first remove unscored pathways
-        fil_odds <- odds_ratio[!is.na(odds_ratio)]
+        ## trans_pvalue <- qnorm(pvalue, lower.tail = FALSE)
+        ## fil_pvalue <- trans_pvalue[!is.na(trans_pvalue)]
+        ## filter -inf that correspond to 0, resulting in a poor fit
+        ## zero_pathways <- names(which(is.infinite(fil_pvalue)))
+        ## fil_pvalue <- fil_pvalue[!is.infinite(fil_pvalue)]
+        ## hist(fil_pvalue, 30)
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_pvalue)
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_pvalue, bre = ceiling(length(fil_odds)/4), df = 7, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1, mlests = c(0, 0.5))
+        ## tmp_locfdr$z.2
+        ## sort(tmp_locfdr$fdr)
         ## 2. then log transform to handle extreme values and to normalize
         # (Chinn 2000, A simple method for converting an odds ratio to effect size for use in meta-analysis
         ## fil_odds <- log(fil_odds)/1.81 
         ## 3. filter any -Inf due to 0
         ## fil_odds <- fil_odds[!is.infinite(fil_odds)]
+
+        ## try to
+        
         ## detect outlying pathways above prior to fitting
+        fil_odds <- odds_ratio[!is.na(odds_ratio)]
         outliers <- boxplot.stats(fil_odds)$out
         if (length(outliers) > 0) fil_odds <- fil_odds[!(names(fil_odds) %in% names(outliers))]
-        ## hist(fil_odds, breaks = 20)
-        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(mean(fil_odds), sd(fil_odds)))
+        ## hist(fil_odds, breaks = 40)
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(1, sd(fil_odds)))
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1, mlests = c(1, sd(fil_odds)))
         suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
                                                       pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
+
+        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
+                                                      pct0 = pct0, nulltype = 1, plot = 1, mlests = c(1, sd(fil_odds))))
+
         (tmp_upper <- tmp_locfdr$z.2[2])
+        head(sort(tmp_locfdr$fdr))
         ## then indicate the hits the hits
         ## tmp_hits <- names(avg_dist)[avg_dist >= tmp_upper]
         tmp_call <- rep(0, length(odds_ratio))
@@ -243,6 +300,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## head(sort(to_return$fdr_value), 50)
         ## sort
         to_return <- to_return[order(to_return$pathway_score, decreasing = T),]
+        ## table(to_return$diff_splice_call)
     }
     
 ### 2.3 Empirical resampling due to automation difficulties
@@ -402,7 +460,7 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 
 
 ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
-## iso_data <- iso_kegg_list[[91]]
+## iso_data <- iso_kegg_list[[18]]
 ## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
 ## pathway_method <- "EE"

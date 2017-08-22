@@ -31,6 +31,7 @@ call_mat <- fil_index <- mapply(function(X, Y){
 }, X = convert_to_list(effect_mat), Y = convert_to_list(fdr_mat), SIMPLIFY = T)
 ## null target pathway
 ## null 9 pathways
+reps = 2000
 rand_mat <- replicate(n = reps, apply(call_mat, 1, function(tmp_pat){
     unname(sample(tmp_pat,1))
 }))
@@ -40,11 +41,24 @@ rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
 if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
 ## at least one of nine? model as binominal even though not independent
 (rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
-## combine
-(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
+## summarize target capture observations
+tmp_target <- summarize_target_data(target_data)
+## find empirical p-value for target pathway
+tmp_emp1 <- sum(tmp_target$target_capture_rate/100 <= rand_capture)/reps
+if (tmp_emp1 == 0) {tmp_emp1 <- 1/(reps+1)}
+## find empirical p-value for cancer pathways
+rand9_capture <- replicate(n = reps, expr =  {
+    tmp_cols <- sample(1:ncol(rand_mat), 9)
+    sum(apply(rand_mat[,tmp_cols], 1, function(tmp_pat){
+        any(tmp_pat == 1)
+    }))/nrow(rand_mat)
+})
+tmp_emp9 <- sum(tmp_target$cancer_capture_rate/100 <= rand9_capture)/reps
+if (tmp_emp9 == 0) {tmp_emp9 <- 1/(reps+1)}
+## format and combine
+(to_return <- cbind(tmp_target, rand50 = rand_data[1], rand90 = rand_data[2], emp1 = tmp_emp1, rand9 = rand_cancer, emp9 = tmp_emp9))
 rownames(to_return) <- "BLCA"
 (all_data <- rbind(all_data, to_return))
-
 
 ## 2. THCA
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_THCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
@@ -71,8 +85,22 @@ rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
 if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
 ## at least one of nine? model as binominal even though not independent
 (rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
-## combine
-(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
+## summarize target capture observations
+tmp_target <- summarize_target_data(target_data)
+## find empirical p-value for target pathway
+tmp_emp1 <- sum(tmp_target$target_capture_rate/100 <= rand_capture)/reps
+if (tmp_emp1 == 0) {tmp_emp1 <- 1/(reps+1)}
+## find empirical p-value for cancer pathways
+rand9_capture <- replicate(n = reps, expr =  {
+    tmp_cols <- sample(1:ncol(rand_mat), 9)
+    sum(apply(rand_mat[,tmp_cols], 1, function(tmp_pat){
+        any(tmp_pat == 1)
+    }))/nrow(rand_mat)
+})
+tmp_emp9 <- sum(tmp_target$cancer_capture_rate/100 <= rand9_capture)/reps
+if (tmp_emp9 == 0) {tmp_emp9 <- 1/(reps+1)}
+## format and combine
+(to_return <- cbind(tmp_target, rand50 = rand_data[1], rand90 = rand_data[2], emp1 = tmp_emp1, rand9 = rand_cancer, emp9 = tmp_emp9))
 rownames(to_return) <- "THCA"
 (all_data <- rbind(all_data, to_return))
 
@@ -101,8 +129,22 @@ rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
 if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
 ## at least one of nine? model as binominal even though not independent
 (rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
-## combine
-(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
+## summarize target capture observations
+tmp_target <- summarize_target_data(target_data)
+## find empirical p-value for target pathway
+tmp_emp1 <- sum(tmp_target$target_capture_rate/100 <= rand_capture)/reps
+if (tmp_emp1 == 0) {tmp_emp1 <- 1/(reps+1)}
+## find empirical p-value for cancer pathways
+rand9_capture <- replicate(n = reps, expr =  {
+    tmp_cols <- sample(1:ncol(rand_mat), 9)
+    sum(apply(rand_mat[,tmp_cols], 1, function(tmp_pat){
+        any(tmp_pat == 1)
+    }))/nrow(rand_mat)
+})
+tmp_emp9 <- sum(tmp_target$cancer_capture_rate/100 <= rand9_capture)/reps
+if (tmp_emp9 == 0) {tmp_emp9 <- 1/(reps+1)}
+## format and combine
+(to_return <- cbind(tmp_target, rand50 = rand_data[1], rand90 = rand_data[2], emp1 = tmp_emp1, rand9 = rand_cancer, emp9 = tmp_emp9))
 rownames(to_return) <- "UCEC"
 (all_data <- rbind(all_data, to_return))
 
@@ -131,8 +173,22 @@ rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
 if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
 ## at least one of nine? model as binominal even though not independent
 (rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
-## combine
-(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
+## summarize target capture observations
+tmp_target <- summarize_target_data(target_data)
+## find empirical p-value for target pathway
+tmp_emp1 <- sum(tmp_target$target_capture_rate/100 <= rand_capture)/reps
+if (tmp_emp1 == 0) {tmp_emp1 <- 1/(reps+1)}
+## find empirical p-value for cancer pathways
+rand9_capture <- replicate(n = reps, expr =  {
+    tmp_cols <- sample(1:ncol(rand_mat), 9)
+    sum(apply(rand_mat[,tmp_cols], 1, function(tmp_pat){
+        any(tmp_pat == 1)
+    }))/nrow(rand_mat)
+})
+tmp_emp9 <- sum(tmp_target$cancer_capture_rate/100 <= rand9_capture)/reps
+if (tmp_emp9 == 0) {tmp_emp9 <- 1/(reps+1)}
+## format and combine
+(to_return <- cbind(tmp_target, rand50 = rand_data[1], rand90 = rand_data[2], emp1 = tmp_emp1, rand9 = rand_cancer, emp9 = tmp_emp9))
 rownames(to_return) <- "PRAD"
 (all_data <- rbind(all_data, to_return))
 
@@ -161,8 +217,22 @@ rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
 if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
 ## at least one of nine? model as binominal even though not independent
 (rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
-## combine
-(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
+## summarize target capture observations
+tmp_target <- summarize_target_data(target_data)
+## find empirical p-value for target pathway
+tmp_emp1 <- sum(tmp_target$target_capture_rate/100 <= rand_capture)/reps
+if (tmp_emp1 == 0) {tmp_emp1 <- 1/(reps+1)}
+## find empirical p-value for cancer pathways
+rand9_capture <- replicate(n = reps, expr =  {
+    tmp_cols <- sample(1:ncol(rand_mat), 9)
+    sum(apply(rand_mat[,tmp_cols], 1, function(tmp_pat){
+        any(tmp_pat == 1)
+    }))/nrow(rand_mat)
+})
+tmp_emp9 <- sum(tmp_target$cancer_capture_rate/100 <= rand9_capture)/reps
+if (tmp_emp9 == 0) {tmp_emp9 <- 1/(reps+1)}
+## format and combine
+(to_return <- cbind(tmp_target, rand50 = rand_data[1], rand90 = rand_data[2], emp1 = tmp_emp1, rand9 = rand_cancer, emp9 = tmp_emp9))
 rownames(to_return) <- "LUSC"
 (all_data <- rbind(all_data, to_return))
 
@@ -200,13 +270,28 @@ rand_data <- round(quantile(rand_capture, c(0.5,0.9))*100, 2)
 if (rand_data[1] == 0) {rand_data[1] <- 1/(reps + 1)}
 ## at least one of nine? model as binominal even though not independent
 (rand_cancer <- round(100*(1 - dbinom(x = 0, size = length(cancer_pathways), prob = rand_data[1]/100)), 2))
-## combine
-(to_return <- cbind(summarize_target_data(target_data), rand50 = rand_data[1], rand90 = rand_data[2], rand9 = rand_cancer))
+## summarize target capture observations
+tmp_target <- summarize_target_data(target_data)
+## find empirical p-value for target pathway
+tmp_emp1 <- sum(tmp_target$target_capture_rate/100 <= rand_capture)/reps
+if (tmp_emp1 == 0) {tmp_emp1 <- 1/(reps+1)}
+## find empirical p-value for cancer pathways
+rand9_capture <- replicate(n = reps, expr =  {
+    tmp_cols <- sample(1:ncol(rand_mat), 9)
+    sum(apply(rand_mat[,tmp_cols], 1, function(tmp_pat){
+        any(tmp_pat == 1)
+    }))/nrow(rand_mat)
+})
+tmp_emp9 <- sum(tmp_target$cancer_capture_rate/100 <= rand9_capture)/reps
+if (tmp_emp9 == 0) {tmp_emp9 <- 1/(reps+1)}
+## format and combine
+(to_return <- cbind(tmp_target, rand50 = rand_data[1], rand90 = rand_data[2], emp1 = tmp_emp1, rand9 = rand_cancer, emp9 = tmp_emp9))
 rownames(to_return) <- "LUAD"
 (all_data <- rbind(all_data, to_return))
 
 ## Table 3
 all_data[order(all_data$target_capture_rate),]
+all_data[order(all_data$emp1),]
 
 ## ## READ (drop as this target is not a perfect match)
 ## load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_READ_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")

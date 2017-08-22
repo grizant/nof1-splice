@@ -83,6 +83,7 @@ parallel::stopCluster(cl = cl)
 ##############################################################################
 #### 5. Explore quickly
 
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_EEv2_KEGG_29july2017.RData")
 length(scores_list)
 (num_hits <- unlist(lapply(scores_list, function(tmp_data){
     sum(tmp_data$diff_splice_call, na.rm = T)
@@ -108,7 +109,7 @@ qplot(num_hits)
 
 ## explore some results
 set.seed(44)
-tmp_data <- scores_list[[sample(1:length(scores_list),1)]]
+tmp_data <- scores_list[[sample(names(scores_list),1)]]
 ## str(tmp_data)
 ## head(tmp_data, 20)
 tmp_data[grep("cancer", tmp_data$pathway_desc),]

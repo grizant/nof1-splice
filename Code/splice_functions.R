@@ -128,7 +128,7 @@ get_OR <- function(tmp_genes, dist_data, genes_range = c(15,500)) {
 }
 
 ## tmp_genes <- annot_list[[sample(1:length(annot_list), 1)]]
-tmp_genes <- annot_list[["hsa03430"]]
+## tmp_genes <- annot_list[["hsa03430"]]
 ## helper to compute odds ratio
 get_fet_pvalue <- function(tmp_genes, dist_data, genes_range = c(15,500), alternative = "greater") {
             measured_genes <- tmp_genes[tmp_genes %in% rownames(dist_data)]

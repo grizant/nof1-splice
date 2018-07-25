@@ -6,6 +6,7 @@
 ############################################################
 ## i. Code development objects (DO NOT RUN)
 
+## MORE TESTING PARAMETERS AT THE BOTTOM!
 ## load("~/Dropbox/Splice-n-of-1-pathways/Data/example_iso_tpm_data.RData")
 ## tmp_pat <- "TCGA.A7.A0CE"
 ## X <- rel_list[[tmp_symbol]]
@@ -424,7 +425,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
 ## filter based on 
 
 ## transform gene-level expression to pathway level
-transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("EE", "avg", "fet", "EEv2"), gene_method = c("delta", "hellinger"), remove_DEGs = F, iso_range = c(2,30), genes_range = c(15,500), ...) {
+transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathway_method = c("EE", "avg", "fet", "EEv2"), gene_method = c("delta", "hellinger"), remove_DEGs = F, iso_range = c(2,30), genes_range = c(15,500), DEGs=NULL, ...) {
     ## i. pre-processing
     ## restructure into a list of genes
     gene_list <- split(iso_data[,-1], iso_data[,1])
@@ -449,30 +450,41 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
     genes_to_keep <- names(filter_logic)[!filter_logic]
     gene_list <- gene_list[genes_to_keep]
 
+    ## Remove listed DEGs for this patient (NEW 25 Jul 2018, AGS)
+    ## May need to try a different strategy:
+    ## instead of removing, assign hellinger distance of 0?
+    ## for example data this removes 983 of the 4133 genes (23%)
+    if (!(is.null(DEGs))){
+        gene_list <- gene_list[!(names(gene_list) %in% DEGs)]
+    }
+    
     ## 1. Find genewise distances
     gene_dist <- transform_iso_gene(X = gene_list, method = gene_method, ...)
  
     ## 2. Compute pathway-level metrics
-    transform_gene_pathway(gene_dist = gene_dist, annot_file = annot_file,
-                           desc_file = desc_file, method = pathway_method,
-                           genes_range = genes_range,...)
+    to_return <- transform_gene_pathway(gene_dist = gene_dist, annot_file = annot_file,
+                                        desc_file = desc_file, method = pathway_method,
+                                        genes_range = genes_range,...)
+    return(to_return)
 }
 
 
 ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
-## iso_data <- iso_kegg_list[[18]]
+## iso_data <- iso_kegg_list[[7]]
 ## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
 ## pathway_method <- "EE"
 ## gene_method <- "hellinger"
 ## iso_range = c(2,30)
 ## genes_range = c(15,500)
+## DEGs = DEG_list[[7]]
 ## 
 ## iso_data <- iso_kegg_list[[sample(1:length(iso_kegg_list),1)]]
-## system.time(example_avg <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 2 seconds
+## system.time(example_avg <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", DEGs=DEG_list[[7]])) ## 2 seconds
 ## 
 ## table(example_avg$diff_splice_call)
 ## head(example_avg, sum(example_avg$diff_splice_call) + 1)
+## head(example_avg, 10)
 ## example_avg[is.na(example_avg$pathway_score), "diff_splice_call"]
 ## example_avg[!is.na(example_avg$pathway_score), "diff_splice_call"]
 ## qplot(x = pathway_score, data = example_avg)

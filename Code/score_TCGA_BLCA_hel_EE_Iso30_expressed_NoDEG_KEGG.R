@@ -1,14 +1,15 @@
 ## Score TCGA BLCA patients via Average pathway Hellinger distances
 ## and Empirical Enrichment
-## applying filters to reduce noise
+## Remove DEG from edgeR analysis
 ## AG Schissler
-## Created 25 Jul 2017
+## Created 25 Jul 2018
 
 ##############################################################################
 #### 1. Setup environment
 
 ## load TCGA BLCA TPM isoform data
 load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_iso_kegg_data.RData") ## NEW ISOFORM 25 Jul 2017
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_deg_list_all.RData") ## NEW ISOFORM 25 Jul 2017
 
 ## source functions
 source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
@@ -33,6 +34,19 @@ for (tmp_pat in patients_chr) {
 }
 
 ##############################################################################
+#### 2b. Restructure DEG data into a patient-wise list for parallel processing
+
+## DEG_dat <- blca_deg_list[[1]]
+
+get_DEGs <- function(DEG_dat, threshold = 0.05) {
+    DEG_dat$id[DEG_dat$BY <= threshold]
+}
+
+## 20% to follow the rest of the paper
+## this is lenient and will remove more genes
+DEG_list <- lapply(blca_deg_list, get_DEGs, threshold=0.2)
+
+##############################################################################
 #### 3. Setup parallel processing
 
 ## load parallelization library
@@ -55,28 +69,30 @@ set.seed(44444)
 tmp_index <- sample(1:length(patients_chr), size = num_cores)
 ## 
 tmp_list <- iso_kegg_list[tmp_index]
-system.time(avg_scores <- parallel::parLapply(cl = cl, tmp_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger"))
+tmp_deg_list <- DEG_list[tmp_index]
+
+## use mapply since we have to change inputs per patient
+avg_scores <- parallel::mcmapply(function(X, Y) {
+    transform_iso_pathway(iso_data=X, DEGs=Y, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt",
+desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "avg", gene_method = "hellinger")
+}, X = tmp_list, Y = DEG_list, SIMPLIFY = F)
+str(avg_scores)
+
+## system.time(avg_scores <- parallel::parLapply(cl = cl, tmp_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "avg", gene_method = "hellinger"))
 ## 
 ## scores_list <- avg_scores
 
 ##############################################################################
 #### 4. Score all patients
 
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "avg", gene_method = "hellinger")) ## 4 seconds
+## now score by Empirical Enrichment (~9.4 sec)
+system.time(scores_list <- parallel::mcmapply(function(X, Y) {
+    transform_iso_pathway(iso_data=X, DEGs=Y, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt",
+desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")
+}, X = tmp_list, Y = DEG_list, SIMPLIFY = F))
 
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_avg_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
-
-## now score by Empirical Enrichment
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")) ## 5 seconds
-
-## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
-
-system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EEv2", gene_method = "hellinger")) ## 1394 seconds (23 min)
-
-## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EEv2_Iso30_expressiod_pathwayfilter_KEGG_29july2017.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressed_NoDEG_KEGG_25july2018.RData")
 
 
 ## close cluster

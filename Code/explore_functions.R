@@ -12,11 +12,16 @@
 ############################################################
 ## 1. Explore impact of the expression on Hellinger distance
 
+## source functions
+source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
 load("~/Dropbox/Splice-n-of-1-pathways/Data/example_iso_tpm_data.RData")
+
+colSums(example_iso_data[,-1])
+
 iso_range = c(2,30)
 genes_range = c(15,500)
 gene_method = "hellinger"
-gene_list <- split(example_iso_data[,-1], iso_data[,1])
+gene_list <- split(example_iso_data[,-1], example_iso_data[,1])
 filter_logic <- unlist(lapply(gene_list, function(tmp_gene) {
 ## retrive number of isoforms
     tmp_num_iso <- dim(tmp_gene)[1]
@@ -25,6 +30,7 @@ filter_logic <- unlist(lapply(gene_list, function(tmp_gene) {
 
 genes_to_keep <- names(filter_logic)[!filter_logic]
 gene_list <- gene_list[genes_to_keep]
+
 gene_dist <- transform_iso_gene(X = gene_list, method = gene_method)
 
 ## find the total gene expression from gene list
@@ -51,3 +57,35 @@ qplot(x=Tumor, y=Dist, data=dat)
 
 p0 <- ggplot(data=dat, aes(x=Normal, y=Tumor, color=Dist)) + geom_point()
 ggsave("Expression colored by Hellinger distance.pdf", p0)
+
+##########################################################
+## try without low expressing genes
+## first need to find the low expressing genes
+
+gene_expr_N <- unlist(lapply(gene_list, function(X) {sum(X[,1])}))
+## str(gene_expr_N)
+gene_expr_T <- unlist(lapply(gene_list, function(X) {sum(X[,2])}))
+
+expr_threshold <- 5
+gene_dist <- transform_iso_gene(X = gene_list, method = gene_method, expr_threshold = expr_threshold)
+summary(gene_dist)
+
+## filter out names not in gene dist (due to 0s)
+gene_expr_N <- gene_expr_N[names(gene_expr_N)[names(gene_expr_N) %in% names(gene_dist)]]
+
+gene_expr_T <- gene_expr_T[names(gene_expr_T)[names(gene_expr_T) %in% names(gene_dist)]]
+
+## check that names match
+all(names(gene_expr_N) == names(gene_dist))
+all(names(gene_expr_T) == names(gene_dist))
+all(names(gene_expr_N) == names(gene_expr_T))
+
+## combine into one data set
+dat <- data.frame(Dist=gene_dist, Normal=log2(gene_expr_N+1), Tumor=log2(gene_expr_T+1))
+str(dat)
+
+qplot(x=Normal, y=Dist, data=dat)
+qplot(x=Tumor, y=Dist, data=dat)
+
+(p0 <- ggplot(data=dat, aes(x=Normal, y=Tumor, color=Dist)) + geom_point())
+ggsave(paste0("Gene_expression_colored_by_Hellinger_distance_expr_threshold=", expr_threshold,".pdf"), p0)

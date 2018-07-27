@@ -64,6 +64,7 @@ get_ss_edgeR_preds <- function(data.matrix, common.dispersion=.1 ){
 ## Note blca stands for 'bladder cancer' so this is bladder cancer dataset
 ## Use the RData in the common cloud storage for speed and reproducibility
 load('~/Dropbox/Splice-n-of-1-pathways/Data/blca_iso_paired.RData')
+## load('~/Dropbox/Splice-n-of-1-pathways/Data/blca_iso_paired_tpm.RData')
 
 ## 1. split by gene symbol and remove iso/gene ID
 ## this could be done easier by tidyverse I think.

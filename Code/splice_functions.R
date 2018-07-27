@@ -25,14 +25,18 @@
 ## 1. Isoform distance functions
 
 ## 1.1 compute Hellinger distance for isoforms of a gene given pair of measurements
-compute_hellinger <- function(X) {
+compute_hellinger <- function(X, only_expressed = T) {
     ## if there is more than one isoform compute the hellinger distance
     if (length(dim(X)) == 2) {
         ## check that the gene is expressed in both samples
-        if (colSums(X)[1] == 0 | colSums(X)[2] == 0) {
-            ## only alternatively spliced genes are of interest
-            ## hel_dist <- 0
-            hel_dist <- NA
+        if (only_expressed) {
+            if (colSums(X)[1] <= 0 | colSums(X)[2] <= 0) {
+                ## only alternatively spliced genes are of interest
+                ## hel_dist <- 0
+                hel_dist <- NA
+            } else {
+                hel_dist <- sqrt(0.5*sum((sqrt(X[,1]) - sqrt(X[,2]))^2))
+            }
         } else {
             hel_dist <- sqrt(0.5*sum((sqrt(X[,1]) - sqrt(X[,2]))^2))
         }
@@ -48,16 +52,30 @@ compute_hellinger <- function(X) {
 ## remove_DEGs: perform a kMEn like clustering step to classify responsive transcripts
 
 ## transform isoform-level expression to gene level
-transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs = F, ...) {
+transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs = F, expr_threshold = 0, ...) {
     
     ## restructure into a list of genes
     gene_list <- X
-        
+
+    ## remove low expressing genes
+    if (expr_threshold > 0) {
+        print("removing low expressing genes")
+        ## tmp_gene <- gene_list[[1]]
+        keep_logic <- unlist(lapply(gene_list, function(tmp_gene) {
+            ## sum the isoform level to find the gene-level expression
+            (colSums(tmp_gene)[1] >= expr_threshold) & (colSums(tmp_gene)[2] >= expr_threshold)
+        }))
+        num_genes_removed <- length(keep_logic) - sum(keep_logic)
+        prop_genes_removed <- round(num_genes_removed/length(keep_logic),3)
+        print(paste("Removed", num_genes_removed, "genes, proportion of total is", prop_genes_removed))
+        gene_list <- gene_list[keep_logic]
+    }
+    
     ## remove DEGs (responsive transcripts) if desired via a clustering step
     if (remove_DEGs) {
         ## find log fold change at the gene level
         logFC_gene_vec <- unlist(lapply(gene_list, function(tmp_gene) {
-            ## sum the isoform level to find the transcript-level expression
+            ## sum the isoform level to find the gene-level expression
             log2(sum(tmp_gene[,2]) + 1) - log2(sum(tmp_gene[,1]) + 1)
         }))
         ## apply k-means to cluster (first step in kMEn) and remove DEG cluster
@@ -71,6 +89,8 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs 
     ## transform via specified method
     if (method == "hellinger") {
         ## first compute the relative expression within a gene
+        ## tmp_gene <- gene_list[[1]]
+        ## tmp_col <- gene_list[[1]]
         rel_list <- lapply(gene_list, function(tmp_gene) {
             apply(tmp_gene, 2, function(tmp_col) {
                 ## check that there is no division by 0 
@@ -81,7 +101,8 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs 
         })
         ## then compute the Hellinger distance
         to_return <- unlist(lapply(rel_list, compute_hellinger))
-        ## remove missing distances (due to non-expression in either sample)
+        ## sum(is.na(to_return))
+        ## remove missing distances (due to non-expression or low expression in either sample)
         to_return <- to_return[!is.na(to_return)]
     }
 
@@ -228,7 +249,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## qplot(x = gene_dist, fill = factor(call), data = dist_data, bins = 120)
         ## 2.2.2 enrichment
         ## tmp_set <- annot_list[[sample(1:length(annot_list), 1)]]
-        odds_ratio <- lapply(annot_list, get_OR, dist_data)
+        odds_ratio <- lapply(annot_list, get_OR, dist_data, genes_range=genes_range)
         ## pvalue <- lapply(annot_list, get_fet_pvalue, dist_data)
         num_genes <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$num_genes}))
         odds_ratio <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$odds_ratio}))
@@ -272,10 +293,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1, mlests = c(1, sd(fil_odds)))
         suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
                                                       pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
-
-        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
-                                                      pct0 = pct0, nulltype = 1, plot = 1, mlests = c(1, sd(fil_odds))))
-
+        
         (tmp_upper <- tmp_locfdr$z.2[2])
         head(sort(tmp_locfdr$fdr))
         ## then indicate the hits the hits
@@ -470,26 +488,28 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 
 
 ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
-## iso_data <- iso_kegg_list[[7]]
+## iso_data <- iso_kegg_list[[1]]
 ## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
 ## pathway_method <- "EE"
 ## gene_method <- "hellinger"
 ## iso_range = c(2,30)
 ## genes_range = c(15,500)
-## DEGs = DEG_list[[7]]
+## genes_range = c(5,500) ## lower for w/o DEG analysis
+## DEGs = DEG_list[[1]]
+## expr_threshold = 0
 ## 
 ## iso_data <- iso_kegg_list[[sample(1:length(iso_kegg_list),1)]]
-## system.time(example_avg <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", DEGs=DEG_list[[7]])) ## 2 seconds
+## system.time(example_ee <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", DEGs=DEGs, genes_range=genes_range)) ## 2 seconds
 ## 
-## table(example_avg$diff_splice_call)
-## head(example_avg, sum(example_avg$diff_splice_call) + 1)
-## head(example_avg, 10)
-## example_avg[is.na(example_avg$pathway_score), "diff_splice_call"]
-## example_avg[!is.na(example_avg$pathway_score), "diff_splice_call"]
-## qplot(x = pathway_score, data = example_avg)
-## head(sort(example_avg$num_genes_measured))
-## head(example_avg[order(example_avg$num_genes_measured),])
-## sum(example_avg$num_genes_measured >= 15)
-## example_avg[grep("cancer", x = example_avg$pathway_desc),]
+## table(example_ee$diff_splice_call)
+## head(example_ee, sum(example_ee$diff_splice_call) + 1)
+## head(example_ee, 10)
+## example_ee[is.na(example_ee$pathway_score), "diff_splice_call"]
+## example_ee[!is.na(example_ee$pathway_score), "diff_splice_call"]
+## qplot(x = pathway_score, data = example_ee)
+## head(sort(example_ee$num_genes_measured))
+## head(example_ee[order(example_ee$num_genes_measured),])
+## sum(example_ee$num_genes_measured >= 15)
+## example_ee[grep("cancer", x = example_ee$pathway_desc),]
 ## 

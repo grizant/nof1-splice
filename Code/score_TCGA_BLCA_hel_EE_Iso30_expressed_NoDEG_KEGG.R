@@ -9,7 +9,8 @@
 
 ## load TCGA BLCA TPM isoform data
 load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_iso_kegg_data.RData") ## NEW ISOFORM 25 Jul 2017
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_deg_list_all.RData") ## NEW ISOFORM 25 Jul 2017
+## DEG isoform data
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_deg_list_all.RData") 
 
 ## source functions
 source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
@@ -85,15 +86,17 @@ str(avg_scores)
 ##############################################################################
 #### 4. Score all patients
 
+## lower the minimum number of genes for the w/o DEG analysis
+## (important pathways are being excluded)
 ## now score by Empirical Enrichment (~9.4 sec)
 system.time(scores_list <- parallel::mcmapply(function(X, Y) {
     transform_iso_pathway(iso_data=X, DEGs=Y, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt",
-desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger")
-}, X = tmp_list, Y = DEG_list, SIMPLIFY = F))
+desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", genes_range = c(5,500))
+}, X = iso_kegg_list, Y = DEG_list, SIMPLIFY = F))
 
+## str(scores_list)
 ## save the object
 save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressed_NoDEG_KEGG_25july2018.RData")
-
 
 ## close cluster
 parallel::stopCluster(cl = cl)
@@ -121,7 +124,7 @@ any(cancer_logic)
 sum(cancer_logic)/length(cancer_logic)
 
 summary(num_hits)
-qplot(num_hits)
+## qplot(num_hits)
 
 ## explore some results
 set.seed(44)
@@ -139,7 +142,7 @@ unlist(lapply(scores_list, function(tmp_data) {
 }))
 
 unlist(lapply(scores_list, function(tmp_data) {
-    tmp_data[tmp_id, "pathway_score"
+    tmp_data[tmp_id, "pathway_score"]
 }))
 
 tmp_pat <- "TCGA-BT-A20U"
@@ -149,16 +152,15 @@ scores_list[[tmp_pat]][165,]
 ##############################################################################
 #### 6. Systematically explore
 
-load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressed_NoDEG_KEGG_25july2018.RData")
 
 ## 6.1. Capture rate of target pathway while varying FDR
 ## find rank of Bladder cancer pathway, hsa05219
 target_id <- "hsa05219"
 
-
 ## tmp_data <- scores_list[[1]]
 
 lapply(scores_list, function(tmp_data){
     summary(tmp_data$fdr_value)
-    head(tmp_data$fdr_value, 10)
+    head(tmp_data, 10)
 })

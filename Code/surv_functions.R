@@ -219,7 +219,7 @@ fit_surv <- function(clusters, clin_data, plot = F) {
             ## geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25) + 
             xlab("Days") + 
             ylab("Proportion survival") +
-            background_grid(major = "xy", minor = "none") +
+            cowplot::background_grid(major = "xy", minor = "none") +
             ## theme_bw() +
             theme(legend.position = "none")
     }

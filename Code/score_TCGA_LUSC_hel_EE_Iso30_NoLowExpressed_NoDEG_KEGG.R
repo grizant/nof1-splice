@@ -1,4 +1,4 @@
-## Score TCGA BLCA patients via Average pathway Hellinger distances
+## Score TCGA LUSC patients via Average pathway Hellinger distances
 ## and Empirical Enrichment
 ## Remove low expressors analysis
 ## AG Schissler
@@ -7,10 +7,10 @@
 ##############################################################################
 #### 1. Setup environment
 
-## load TCGA BLCA TPM isoform data
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_iso_kegg_data.RData") ## NEW ISOFORM 25 Jul 2017
+## load TCGA LUSC TPM isoform data
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/lusc_iso_kegg_data.RData") ## NEW ISOFORM 25 Jul 2017
 ## DEG isoform data
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/blca_deg_list_all.RData") 
+load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/lusc_deg_list_all.RData") 
 
 ## source functions
 source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
@@ -19,8 +19,8 @@ source("~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R")
 #### 2. Restructure iso data into a patient-wise list for parallel processing
 
 ## Retrieve patient IDs
-pat_col <- grep("TCGA", x = names(blca_iso_kegg_data))
-patients_chr <- unique(substring(names(blca_iso_kegg_data[pat_col]), 1, 12))
+pat_col <- grep("TCGA", x = names(lusc_iso_kegg_data))
+patients_chr <- unique(substring(names(lusc_iso_kegg_data[pat_col]), 1, 12))
 
 ## create a empty list
 iso_kegg_list <- vector(mode = "list", length =  length(patients_chr))
@@ -29,15 +29,15 @@ names(iso_kegg_list) <- patients_chr
 ## tmp_pat <- patients_chr[1]
 for (tmp_pat in patients_chr) {
     ## retrieve gene symbols and the paired transcriptomes
-    iso_kegg_list[[tmp_pat]] <- (data.frame(geneSymbol = blca_iso_kegg_data$geneSymbol,
-                                            blca_iso_kegg_data[, grep(tmp_pat, names(blca_iso_kegg_data))]))
-    iso_kegg_list[[tmp_pat]][, "geneSymbol"] <- as.character(blca_iso_kegg_data$geneSymbol)
+    iso_kegg_list[[tmp_pat]] <- (data.frame(geneSymbol = lusc_iso_kegg_data$geneSymbol,
+                                            lusc_iso_kegg_data[, grep(tmp_pat, names(lusc_iso_kegg_data))]))
+    iso_kegg_list[[tmp_pat]][, "geneSymbol"] <- as.character(lusc_iso_kegg_data$geneSymbol)
 }
 
 ##############################################################################
 #### 2b. Restructure DEG data into a patient-wise list for parallel processing
 
-## DEG_dat <- blca_deg_list[[1]]
+## DEG_dat <- lusc_deg_list[[1]]
 
 get_DEGs <- function(DEG_dat, threshold = 0.05) {
     DEG_dat$id[DEG_dat$BY <= threshold]
@@ -45,7 +45,7 @@ get_DEGs <- function(DEG_dat, threshold = 0.05) {
 
 ## 20% to follow the rest of the paper
 ## this is lenient and will remove more genes
-DEG_list <- lapply(blca_deg_list, get_DEGs, threshold=0.2)
+DEG_list <- lapply(lusc_deg_list_all, get_DEGs, threshold=0.2)
 
 ##############################################################################
 #### 3. Setup parallel processing
@@ -96,7 +96,7 @@ system.time(scores_list <- parallel::mcmapply(function(X, Y) {
  
 ## str(scores_list)
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expr_threshold=5_NoDEG_KEGG_25july2018.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_hel_EE_Iso30_expr_threshold=5_NoDEG_KEGG_25july2018.RData")
 
 ## close cluster
 parallel::stopCluster(cl = cl)
@@ -152,7 +152,7 @@ scores_list[[tmp_pat]][165,]
 ##############################################################################
 #### 6. Systematically explore
 
-load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expr_threshold=5_NoDEG_KEGG_25july2018.RData")
+load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_hel_EE_Iso30_expr_threshold=5_NoDEG_KEGG_25july2018.RData")
 
 ## 6.1. Capture rate of target pathway while varying FDR
 ## find rank of Bladder cancer pathway, hsa05219

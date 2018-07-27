@@ -488,7 +488,8 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 
 
 ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
-## iso_data <- iso_kegg_list[[1]]
+## tmp_index <- 7
+## iso_data <- iso_kegg_list[[tmp_index]]
 ## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
 ## pathway_method <- "EE"
@@ -496,11 +497,12 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 ## iso_range = c(2,30)
 ## genes_range = c(15,500)
 ## genes_range = c(5,500) ## lower for w/o DEG analysis
-## DEGs = DEG_list[[1]]
-## expr_threshold = 0
+## DEGs = NULL
+## DEGs = DEG_list[[tmp_index]]
+## expr_threshold = 5
 ## 
 ## iso_data <- iso_kegg_list[[sample(1:length(iso_kegg_list),1)]]
-## system.time(example_ee <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", DEGs=DEGs, genes_range=genes_range)) ## 2 seconds
+## system.time(example_ee <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", DEGs=DEGs, genes_range=genes_range, expr_threshold=expr_threshold)) ## 2 seconds
 ## 
 ## table(example_ee$diff_splice_call)
 ## head(example_ee, sum(example_ee$diff_splice_call) + 1)

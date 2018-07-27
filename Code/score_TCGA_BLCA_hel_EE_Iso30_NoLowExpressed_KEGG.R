@@ -89,14 +89,16 @@ str(avg_scores)
 ## lower the minimum number of genes for the w/o DEG analysis
 ## (important pathways are being excluded)
 ## now score by Empirical Enrichment (~9.4 sec)
-system.time(scores_list <- parallel::mcmapply(function(X, Y) {
-    transform_iso_pathway(iso_data=X, DEGs=Y, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt",
-                          desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", genes_range = c(5,500), expr_threshold = 5)
-}, X = iso_kegg_list, Y = DEG_list, SIMPLIFY = F))
+system.time(scores_list <- parallel::parLapply(cl = cl, iso_kegg_list, transform_iso_pathway, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", genes_range = c(5,500), expr_threshold = 5))
+
+## system.time(scores_list <- parallel::mcmapply(function(X, Y) {
+##     transform_iso_pathway(iso_data=X, DEGs=Y, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt",
+## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", genes_range = c(5,500))
+## }, X = iso_kegg_list, Y = DEG_list, , SIMPLIFY = F))
  
 ## str(scores_list)
 ## save the object
-save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expr_threshold=5_NoDEG_KEGG_25july2018.RData")
+save(scores_list, file = "~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expr_threshold=5_KEGG_25july2018.RData")
 
 ## close cluster
 parallel::stopCluster(cl = cl)
@@ -152,7 +154,7 @@ scores_list[[tmp_pat]][165,]
 ##############################################################################
 #### 6. Systematically explore
 
-load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expr_threshold=5_NoDEG_KEGG_25july2018.RData")
+load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expr_threshold=5_KEGG_25july2018.RData")
 
 ## 6.1. Capture rate of target pathway while varying FDR
 ## find rank of Bladder cancer pathway, hsa05219

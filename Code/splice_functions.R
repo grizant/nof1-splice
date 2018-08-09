@@ -71,7 +71,7 @@ transform_iso_gene <- function(X, method = c("delta", "hellinger"), remove_DEGs 
         gene_list <- gene_list[keep_logic]
     }
     
-    ## remove DEGs (responsive transcripts) if desired via a clustering step
+    ## remove DEGs (responsive transcripts) if desired via a clustering step (not by pre-determined list)
     if (remove_DEGs) {
         ## find log fold change at the gene level
         logFC_gene_vec <- unlist(lapply(gene_list, function(tmp_gene) {
@@ -177,12 +177,15 @@ get_fet_pvalue <- function(tmp_genes, dist_data, genes_range = c(15,500), altern
 
 
 ## transform gene-level expression to pathway level
-transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, reps = 2000, fdr_threshold = 0.2 , ...) {
+## transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", ...) {
+transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", go_desc_file = F, database = NULL, ...) {
     ### 1. Structure gene set definitions
     ## read in gene set (pathway) annotation
     annot_data <- read.delim2(file = annot_file, stringsAsFactors = F)
     ## restructure into a list of pathways
-    annot_list <- split(annot_data$symbol, annot_data$path_id)
+    ## make path_id_name a variable, path_id_name <- "path_id"
+    id_column <- which(names(annot_data) == path_id_name)
+    annot_list <- split(annot_data$symbol, annot_data[,id_column])
     ## store the number of genes annotated
     annot_lengths <- unlist(lapply(annot_list, function(tmp_genes) {length(unique(tmp_genes))}))
     ## count genes actually measured
@@ -289,10 +292,24 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
         outliers <- boxplot.stats(fil_odds)$out
         if (length(outliers) > 0) fil_odds <- fil_odds[!(names(fil_odds) %in% names(outliers))]
         ## hist(fil_odds, breaks = 40)
+        ## try vanilla since we have high dimension
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds)
+        ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(1, sd(fil_odds)))
         ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 2, plot = 1, mlests = c(1, sd(fil_odds)))
         ## tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = 1/4, nulltype = 1, plot = 1, mlests = c(1, sd(fil_odds)))
-        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
-                                                      pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
+
+
+        ## just two options for with KEGG and GOBP the only pathway databases tested
+        ## Need to make this adaptative to ontology size moving forward AGS 9 Aug 2018
+        if (!is.null(database)) {
+            if (database == "gobp") {
+                suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, plot = 0))
+            }
+        } else {
+            ## assume KEGG for legacy compatible
+        suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
+        }
+                
         
         (tmp_upper <- tmp_locfdr$z.2[2])
         head(sort(tmp_locfdr$fdr))
@@ -409,16 +426,30 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
     ### add pathway descriptions
     to_return$pathway_desc <- "N/A"
     if (!is.null(desc_file)) {
-        ## read in
-        desc_data <- read.delim2(file = desc_file, stringsAsFactors = F)
-        rownames(desc_data) <- desc_data$path_id
-        ## check that scored pathways have annotation
-        if (any(rownames(to_return) %in% desc_data$path_id)) {
-            ## add to the output
-            to_return$pathway_desc <- desc_data[rownames(to_return), "description"]
+        ## check if using gobp description file of Jianrong (needs standardization!!)
+        if (!go_desc_file) {
+            desc_data <- read.delim2(file = desc_file, stringsAsFactors = F)
+            rownames(desc_data) <- desc_data[, id_column]
+            ## check that scored pathways have annotation
+            if (any(rownames(to_return) %in% desc_data$path_id)) {
+                ## add to the output
+                to_return$pathway_desc <- desc_data[rownames(to_return), "description"]
+            } else {
+                warning("Pathway ids in description data do not match ids in gene set definitions.")
+            }
         } else {
-            warning("Pathway ids in description data do not match ids in gene set definitions.")
+            ## gobp descriptions
+            desc_data <- read.table(file = desc_file, sep = "|", quote='"', comment.char = "%")
+            rownames(desc_data) <- as.character(desc_data[,1])
+            ## check that scored pathways have annotation
+            if (any(rownames(to_return) %in% desc_data[,1])) {
+                ## add to the output
+                to_return$pathway_desc <- as.character(desc_data[rownames(to_return), 2])
+            } else {
+                warning("Pathway ids in description data do not match ids in gene set definitions.")
+            }
         }
+        
     }
     ## return the pathway-level metrics
     return(to_return)
@@ -471,18 +502,19 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
     ## Remove listed DEGs for this patient (NEW 25 Jul 2018, AGS)
     ## May need to try a different strategy:
     ## instead of removing, assign hellinger distance of 0?
-    ## for example data this removes 983 of the 4133 genes (23%)
+    ## sum(names(gene_list) %in% DEGs); length(names(gene_list))
     if (!(is.null(DEGs))){
         gene_list <- gene_list[!(names(gene_list) %in% DEGs)]
     }
     
     ## 1. Find genewise distances
     gene_dist <- transform_iso_gene(X = gene_list, method = gene_method, ...)
+    ## gene_dist <- transform_iso_gene(X = gene_list, method = gene_method)
  
     ## 2. Compute pathway-level metrics
     to_return <- transform_gene_pathway(gene_dist = gene_dist, annot_file = annot_file,
                                         desc_file = desc_file, method = pathway_method,
-                                        genes_range = genes_range,...)
+                                        genes_range = genes_range, ...)
     return(to_return)
 }
 
@@ -490,8 +522,12 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 ## iso_data <- iso_kegg_list[["TCGA.BH.A1FM"]]
 ## tmp_index <- 7
 ## iso_data <- iso_kegg_list[[tmp_index]]
+## iso_data <- iso_gobp_list[[tmp_index]]
 ## annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt"
+## annot_file = "~/Dropbox/Lab-Tools-Files/GeneOntology/2018-02-07/Human/gene2go_Human_BP_filter.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
+## desc_file = "~/Dropbox/Lab-Tools-Files/GeneOntology/2018-02-07/gene_ontology02072018.txt"
+## go_desc_file = T
 ## pathway_method <- "EE"
 ## gene_method <- "hellinger"
 ## iso_range = c(2,30)
@@ -500,13 +536,16 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 ## DEGs = NULL
 ## DEGs = DEG_list[[tmp_index]]
 ## expr_threshold = 5
-## 
-## iso_data <- iso_kegg_list[[sample(1:length(iso_kegg_list),1)]]
-## system.time(example_ee <- transform_iso_pathway(iso_data = iso_data, annot_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt", desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt", pathway_method = "EE", gene_method = "hellinger", DEGs=DEGs, genes_range=genes_range, expr_threshold=expr_threshold)) ## 2 seconds
+## path_id_name = "path_id"
+## path_id_name = "goid"
+## database = "gobp"
+    
+## system.time(example_ee <- transform_iso_pathway(iso_data = iso_data, annot_file = annot_file, desc_file = desc_file, pathway_method = pathway_method, gene_method = gene_method, DEGs=DEGs, genes_range=genes_range, expr_threshold=expr_threshold, path_id_name = path_id_name, go_desc_file = go_desc_file)) 
 ## 
 ## table(example_ee$diff_splice_call)
 ## head(example_ee, sum(example_ee$diff_splice_call) + 1)
 ## head(example_ee, 10)
+## head(example_ee[example_ee$num_genes_measured >= 15,], 10)
 ## example_ee[is.na(example_ee$pathway_score), "diff_splice_call"]
 ## example_ee[!is.na(example_ee$pathway_score), "diff_splice_call"]
 ## qplot(x = pathway_score, data = example_ee)

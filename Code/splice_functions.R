@@ -178,7 +178,7 @@ get_fet_pvalue <- function(tmp_genes, dist_data, genes_range = c(15,500), altern
 
 ## transform gene-level expression to pathway level
 ## transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", ...) {
-transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", go_desc_file = F, database = NULL, ...) {
+transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet", "deg_locFDR"), genes_range = c(15, 500), reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", go_desc_file = F, database = NULL, ...) {
     ### 1. Structure gene set definitions
     ## read in gene set (pathway) annotation
     annot_data <- read.delim2(file = annot_file, stringsAsFactors = F)
@@ -306,7 +306,7 @@ transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, meth
                 suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, plot = 0))
             }
         } else {
-            ## assume KEGG for legacy compatible
+            ## if not specified, assume KEGG for code legacy compatibility
         suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
         }
                 
@@ -503,12 +503,17 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
     ## May need to try a different strategy:
     ## instead of removing, assign hellinger distance of 0?
     ## sum(names(gene_list) %in% DEGs); length(names(gene_list))
-    if (!(is.null(DEGs))){
+    if (!(is.null(DEGs)) & (pathway_method != "deg_locFDR")){
         gene_list <- gene_list[!(names(gene_list) %in% DEGs)]
     }
     
     ## 1. Find genewise distances
-    gene_dist <- transform_iso_gene(X = gene_list, method = gene_method, ...)
+    if (pathway_method != "deg_locFDR") {
+        gene_dist <- transform_iso_gene(X = gene_list, method = gene_method, ...)
+    } else {
+        
+    }
+    
     ## gene_dist <- transform_iso_gene(X = gene_list, method = gene_method)
  
     ## 2. Compute pathway-level metrics
@@ -527,14 +532,17 @@ transform_iso_pathway <- function(iso_data, annot_file, desc_file = NULL, pathwa
 ## annot_file = "~/Dropbox/Lab-Tools-Files/GeneOntology/2018-02-07/Human/gene2go_Human_BP_filter.txt"
 ## desc_file = "~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt"
 ## desc_file = "~/Dropbox/Lab-Tools-Files/GeneOntology/2018-02-07/gene_ontology02072018.txt"
-## go_desc_file = T
+## go_desc_file = F
 ## pathway_method <- "EE"
+## pathway_method <- "deg_locFDR"
 ## gene_method <- "hellinger"
+## gene_method <- "edgeR"
 ## iso_range = c(2,30)
 ## genes_range = c(15,500)
 ## genes_range = c(5,500) ## lower for w/o DEG analysis
 ## DEGs = NULL
 ## DEGs = DEG_list[[tmp_index]]
+## expr_threshold = NULL
 ## expr_threshold = 5
 ## path_id_name = "path_id"
 ## path_id_name = "goid"

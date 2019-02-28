@@ -1,0 +1,5 @@
+#!/bin/bash
+#SBATCH -n 1
+#SBATCH --job-name=seqR_test
+
+time Rscript run_seqR.R "./R_hat/test_corr_matrix_d=20_stand.txt" "./distributions/poisson_data_brca_d=20_n=1093.txt" 20 100 44 "./output_seqR/test.txt"

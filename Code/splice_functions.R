@@ -178,7 +178,7 @@ get_fet_pvalue <- function(tmp_genes, dist_data, genes_range = c(15,500), altern
 
 ## transform gene-level expression to pathway level
 ## transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet"), genes_range = c(15, 500), pct0 = 1/4, reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", ...) {
-transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet", "deg_locFDR"), genes_range = c(15, 500), reps = 2000, fdr_threshold = 0.2, path_id_name = "path_id", go_desc_file = F, database = NULL, ...) {
+transform_gene_pathway <- function(gene_dist, annot_file, desc_file = NULL, method = c("EE", "avg", "fet", "deg_locFDR"), genes_range = c(15, 500), reps = 2000, fdr_threshold = 0.2, pct0 = 1/4, path_id_name = "path_id", go_desc_file = F, database = NULL, ...) {
     ### 1. Structure gene set definitions
     ## read in gene set (pathway) annotation
     annot_data <- read.delim2(file = annot_file, stringsAsFactors = F)

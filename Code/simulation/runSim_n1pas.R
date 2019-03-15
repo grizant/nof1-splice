@@ -8,38 +8,40 @@
 setwd("~/Research/n1pas/sim_files")
 print("Running n1pas simulation")
 
-num.args <- 5
+num.args <- 7
 ## add a clustering method parameter
 ## num.args <- 
 
 print("Checking parameters")
 args = commandArgs(TRUE)
 if (length(args) != num.args) {
-    stop("Not enough arguments! Need to specify dataset, pathway size (P), proportion of ASGs (pi), seed, outfile")
+    stop("Not enough arguments! Need to specify dataset, patientIndex, pathway size (P), proportion of ASGs (pi), reps, seed, outfile")
 }
 
 #######################################################
 ### 1. Read in user-specified parameters
 #######################################################
 
-## mimic the gpusim parameters
-
 ### test parameters
-## args <- c("ucec", 50, 0.5, 44, "~/Research/n1pas/sim_results/test.txt")
+## args <- c("ucec", 2, 250, 0.15, 10, 1223334.44, "~/Research/n1pas/sim_results/test5.txt")
 
 ## parse options
 args.values <- args
 
-## 1. all iso data
+## 1. tcga dataset
 dataset <- args.values[1]
-## 2. expressed genes in pathway size
-p <- as.numeric(args.values[2])
-## 3. pi, proportion of ASGs above background
-pi <- as.numeric(args.values[3])
-## 4. seed
-seed <- as.numeric(args.values[4])
-## 6. output file
-outfile <- args.values[5]
+## 2. patientIndex
+patientIndex <- as.numeric(args.values[2])
+## 3. expressed genes in pathway size
+p <- as.numeric(args.values[3])
+## 4. pi, proportion of ASGs above background
+pi <- as.numeric(args.values[4])
+## 5. simulation replicates within patient
+reps <- as.numeric(args.values[5])
+## 6. seed (make an integer)
+seed <- as.numeric(args.values[6]) * 100
+## 7. output file name
+outfile <- args.values[7]
 
 ## id <- paste(n,"-",d,"-","copula","1")
 ## today <- format(Sys.time(), "%Y-%m-%d.%H:%M:%S")
@@ -91,11 +93,31 @@ for (tmp_pat in patients_chr) {
                                             iso_kegg_data[, grep(tmp_pat, names(iso_kegg_data))]))
     iso_kegg_list[[tmp_pat]][, "geneSymbol"] <- as.character(iso_kegg_data$geneSymbol)
 }
+
+## extract patient of interest
+patientID <- names(iso_kegg_list)[patientIndex]
+iso_data <- iso_kegg_list[[patientID]]
 rm(iso_kegg_data)
+rm(iso_kegg_list)
 
 #################################################################################
 ## 3. N1PAS simulation function
 #######################################################
+
+## sim parameters
+## tolerance for fuzzy pathway size match
+## only comes into play for large pathways
+tol <- 10
+
+## catch any errors
+show_condition <- function(code) {
+  tryCatch(code,
+    error = function(c) "error",
+    warning = function(c) "warning",
+    message = function(c) "message"
+  )
+}
+## show_condition(stop("!"))
 
 ## iso_data <- iso_kegg_list[[2]]
 runSim_n1pas <- function(iso_data, p, pi){
@@ -174,8 +196,19 @@ runSim_n1pas <- function(iso_data, p, pi){
     if (length(tmp_index) > 0){
         print("At least one pathway of target size.")
         path_id <- sample(names(tmp_index), 1)
+        new_p <- p
     } else {
-        stop("TARGET PATHWAY SIZE NOT FOUND, DEVELOP A FUZZY MATCH SYSTEM?")
+        ## find closet with maximum pathway size
+        ## (does not inflate sample that is reported)
+        tmp_index <- which.min(abs(measured_lengths[measured_lengths > p] - p))
+        ## check tolerance (always larger
+        if ( all(measured_lengths[names(tmp_index)] - p <= tol) ) {
+            print(paste("At least one pathway within tolerance of", tol, "pathways."))
+            path_id <- sample(names(tmp_index), 1)
+            new_p <- unname(measured_lengths[path_id])
+        } else {
+            stop(paste("TARGET PATHWAY SIZE NOT FOUND WITH TOLERANCE OF", tol, "PATHWAYS"))
+        }
     }
 
     ## 5. Inject signal into target pathway
@@ -225,45 +258,53 @@ runSim_n1pas <- function(iso_data, p, pi){
     num_genes <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$num_genes}))
     odds_ratio <- unlist(lapply(odds_ratio, function(tmp_id) {tmp_id$odds_ratio}))
     fil_odds <- odds_ratio[!is.na(odds_ratio)]
-    (outliers <- boxplot.stats(fil_odds)$out)
+    outliers <- boxplot.stats(fil_odds)$out
     if (length(outliers) > 0) fil_odds <- fil_odds[!(names(fil_odds) %in% names(outliers))]
-    suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0,
-                                                  pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds))))
-    tmp_upper <- tmp_locfdr$z.2[2]
-    tmp_call <- rep(0, length(odds_ratio))
-    names(tmp_call) <- names(odds_ratio)
-    if (!is.na(tmp_upper)) {
-        odds_ratio[which(odds_ratio >= tmp_upper)]
-        tmp_call[which(odds_ratio >= tmp_upper)] <- 1
-    } else {
-        if (length(outliers) > 0) {
-            tmp_call[names(outliers)] <- 1
+    ## fit mixture model while catching errors
+    my_condition <- show_condition(suppressWarnings(tmp_locfdr <- locfdr::locfdr(zz = fil_odds, bre = ceiling(length(fil_odds)/8), df = 4, pct = 0, pct0 = pct0, nulltype = 2, plot = 0, mlests = c(1, sd(fil_odds)))))
+    if (all(my_condition != "error")){
+        tmp_upper <- tmp_locfdr$z.2[2]
+        tmp_call <- rep(0, length(odds_ratio))
+        names(tmp_call) <- names(odds_ratio)
+        if (!is.na(tmp_upper)) {
+            odds_ratio[which(odds_ratio >= tmp_upper)]
+            tmp_call[which(odds_ratio >= tmp_upper)] <- 1
+        } else {
+            if (length(outliers) > 0) {
+                tmp_call[names(outliers)] <- 1
+            }
         }
-    }
+        
+        ## 7. Format output
+        scored_data <- data.frame(pathway_score = odds_ratio, direction = NA, fdr_value = 1, num_genes_annot = annot_lengths, num_genes_measured = measured_lengths, row.names = names(odds_ratio), upper_fdr_threshold = tmp_upper, diff_splice_call = tmp_call, stringsAsFactors = F)
+        ## str(tmp_locfdr)
+        ## update fdr_value
+        scored_data[names(fil_odds), "fdr_value"] <- tmp_locfdr$fdr
+        ## and give p-value of 0 for outliers
+        if (length(outliers) > 0) {scored_data[names(outliers), "fdr_value"] <- 0}
+        ## head(sort(to_return$fdr_value), 50)
+        ## sort
+        scored_data <- scored_data[order(scored_data$pathway_score, decreasing = T),]
 
-    ## 7. Format output
-    scored_data <- data.frame(pathway_score = odds_ratio, direction = NA, fdr_value = 1, num_genes_annot = annot_lengths, num_genes_measured = measured_lengths, row.names = names(odds_ratio), upper_fdr_threshold = tmp_upper, diff_splice_call = tmp_call, stringsAsFactors = F)
-    ## str(tmp_locfdr)
-    ## update fdr_value
-    scored_data[names(fil_odds), "fdr_value"] <- tmp_locfdr$fdr
-    ## and give p-value of 0 for outliers
-    if (length(outliers) > 0) {scored_data[names(outliers), "fdr_value"] <- 0}
-    ## head(sort(to_return$fdr_value), 50)
-    ## sort
-    scored_data <- scored_data[order(scored_data$pathway_score, decreasing = T),]
-
-    ## 8. Produce simulation output
-    target_captured <- scored_data[path_id, "diff_splice_call"]
-    ## caclutate fpr
-    if (pi - prop_asg > 0) {
-        ## false positive rate discounting target pathway
-        false_positive_rate <- sum(scored_data[!(rownames(scored_data) %in% path_id), "diff_splice_call"]) / ( nrow(scored_data) - 1)
+        ## 8. Produce simulation output
+        target_captured <- scored_data[path_id, "diff_splice_call"]
+        ## caclutate fpr
+        if (pi - prop_asg > 0) {
+            ## false positive rate discounting target pathway
+            false_positive_rate <- sum(scored_data[!(rownames(scored_data) %in% path_id), "diff_splice_call"]) / ( nrow(scored_data) - 1)
+        } else {
+            ## false positive rate counting target pathway
+            false_positive_rate <- sum(scored_data[, "diff_splice_call"]) / ( nrow(scored_data) )
+        }
+        output_data <- c(sim_p = p, actual_p = new_p, prop_asg = prop_asg, pi = pi - prop_asg,
+                         target_captured = target_captured, false_positive_rate = false_positive_rate)
     } else {
-        ## false positive rate counting target pathway
-        false_positive_rate <- sum(scored_data[, "diff_splice_call"]) / ( nrow(scored_data) )
+        ## locFDR falied
+        output_data <- c(sim_p = p, actual_p = new_p, prop_asg = prop_asg, pi = pi - prop_asg,
+                         target_captured = NA, false_positive_rate = NA)
+        
     }
-    output_data <- data.frame(dataset = dataset, pathway_size = p, prop_asg = prop_asg, pi = pi - prop_asg,
-                              target_captured = target_captured, false_positive_rate = false_positive_rate)
+    ## return sim results
     return(output_data)
 }
 
@@ -272,22 +313,26 @@ runSim_n1pas <- function(iso_data, p, pi){
 #######################################################
 print("Simulating N1PAS")
 
-iso_data <- iso_kegg_list[[2]]
-set.seed(50)
-runSim_n1pas(iso_data = iso_data, p = 50, pi = 0.2)
+## test one run
+## system.time(runSim_n1pas(iso_data = iso_data, p = p, pi = pi))
 
-system.time(sim_data <- my_norta(n=n, r_mat=R_hat, margins=param_margins[[1]],
-                                 paramMargins=param_margins[[2]]))
+set.seed(seed)
+system.time(sim_data <- replicate(n = reps, runSim_n1pas(iso_data = iso_data, p = p, pi = pi)))
 
 #######################################################
-### 5. Check
+### 5. Organize into a data.frame with meta data
 #######################################################
 
-## R_hat[1:5,1:5]
-## cor(sim_data)[1:5,1:5]
+sim_data <- as.data.frame(t(sim_data))
+sim_data$dataset <- dataset
+sim_data$patientID <- patientID
+
+## explore a bit
+## summary(sim_data$false_positive_rate)
+## sum(sim_data$target_captured) / nrow(sim_data)
 
 #######################################################
 ### 6. Writing files
 #######################################################
 print("Save simulated data")
-system.time(MASS::write.matrix(sim_data, outfile))
+system.time(write.csv(sim_data, outfile, quote = FALSE, row.names = TRUE))

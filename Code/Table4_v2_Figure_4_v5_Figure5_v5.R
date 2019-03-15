@@ -100,13 +100,12 @@ one_clust <- top_clust
 ## cluster 1 is better
 ## odds ratio within top pathway by cluster
 ## clinical cutoff is the midpoint between the min/max of clusters
-
-min(top_or[names(which(top_clust == 1))])
-max(top_or[names(which(top_clust == 2))])
-
+top_label <- unname(top_clust[names(which.max(top_or))])
+bottom_label <- c(1,2)[-top_label]
+smallest_top_value <- min(top_or[names(which(top_clust == top_label))])
+largest_bottom_value <- max(top_or[names(which(top_clust == bottom_label))])
+midpoint <- (smallest_top_value + largest_bottom_value) / 2
 top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels = c("Better", "Worse")))
-
-
 (p1 <- ggplot(data = top_data, aes(x = cluster, y = odds_ratio)) +
      geom_boxplot() + 
      ## theme_bw() +
@@ -115,7 +114,7 @@ top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels =
      ylim(c(0, 3.25)) +
      geom_jitter(width = 0.1, alpha = 0.5) +
      geom_hline(yintercept = 1) +
-     geom_hline(yintercept = 1) +
+     geom_hline(yintercept = midpoint, color = 'red', linetype = 'dashed') +
      xlab( paste("Cluster via '", top_desc, "'", sep="") ) )
     
 ### hit 2
@@ -129,6 +128,12 @@ two_clust <- top_clust
 (s2 <- top_surv$plot + labs(title = paste("Cluster via '", top_desc, "'", sep="")))
 ## cluster 1 is better
 ## odds ratio within top pathway by cluster
+## clinical cutoff is the midpoint between the min/max of clusters
+top_label <- unname(top_clust[names(which.max(top_or))])
+bottom_label <- c(1,2)[-top_label]
+smallest_top_value <- min(top_or[names(which(top_clust == top_label))])
+largest_bottom_value <- max(top_or[names(which(top_clust == bottom_label))])
+midpoint <- (smallest_top_value + largest_bottom_value) / 2
 top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels = c("Better", "Worse")))
 (p2 <- ggplot(data = top_data, aes(x = cluster, y = odds_ratio)) +
      geom_boxplot() + 
@@ -138,6 +143,7 @@ top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels =
      ylim(c(0, 3.25)) +
      geom_jitter(width = 0.1, alpha = 0.5) +
      geom_hline(yintercept = 1) +
+     geom_hline(yintercept = midpoint, color = 'red', linetype = 'dashed') +
      xlab( paste("Cluster via '", top_desc, "'", sep="") ) )
 
 ### hit 3
@@ -153,6 +159,12 @@ top_desc <- gsub("Staphylococcus", "Staph", top_desc)
 ## cluster 2 is better!!
 top_clust <- ifelse(top_clust == 1, 2, 1)
 ## odds ratio within top pathway by cluster
+## clinical cutoff is the midpoint between the min/max of clusters
+top_label <- unname(top_clust[names(which.max(top_or))])
+bottom_label <- c(1,2)[-top_label]
+smallest_top_value <- min(top_or[names(which(top_clust == top_label))])
+largest_bottom_value <- max(top_or[names(which(top_clust == bottom_label))])
+midpoint <- (smallest_top_value + largest_bottom_value) / 2
 top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels = c("Better", "Worse")))
 (p3 <- ggplot(data = top_data, aes(x = cluster, y = odds_ratio)) +
      geom_boxplot() + 
@@ -162,6 +174,7 @@ top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels =
      ylim(c(0, 3.25)) +
      geom_jitter(width = 0.1, alpha = 0.5) +
      geom_hline(yintercept = 1) +
+     geom_hline(yintercept = midpoint, color = 'red', linetype = 'dashed') +
      xlab( paste("Cluster via '", top_desc, "'", sep="") ) )
 
 ### hit 4
@@ -177,6 +190,12 @@ target_clust <- four_clust
 (s4 <- top_surv$plot + labs(title = paste("Cluster via '", top_desc, "'", sep="")))
 ## cluster 1 is better
 ## odds ratio within top pathway by cluster
+## clinical cutoff is the midpoint between the min/max of clusters
+top_label <- unname(top_clust[names(which.max(top_or))])
+bottom_label <- c(1,2)[-top_label]
+smallest_top_value <- min(top_or[names(which(top_clust == top_label))])
+largest_bottom_value <- max(top_or[names(which(top_clust == bottom_label))])
+midpoint <- (smallest_top_value + largest_bottom_value) / 2
 top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels = c("Better", "Worse")))
 (p4 <- ggplot(data = top_data, aes(x = cluster, y = odds_ratio)) +
      geom_boxplot() + 
@@ -186,6 +205,7 @@ top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels =
      ylim(c(0, 3.25)) +
      geom_jitter(width = 0.1, alpha = 0.5) +
      geom_hline(yintercept = 1) +
+     geom_hline(yintercept = midpoint, color = 'red', linetype = 'dashed') +
      xlab( paste("Cluster via '", top_desc, "'", sep="") ) )
 
 ### hit 5
@@ -202,6 +222,12 @@ top_surv
 ## cluster 2 is better
 top_clust <- ifelse(top_clust == 1, 2, 1)
 ## odds ratio within top pathway by cluster
+## clinical cutoff is the midpoint between the min/max of clusters
+top_label <- unname(top_clust[names(which.max(top_or))])
+bottom_label <- c(1,2)[-top_label]
+smallest_top_value <- min(top_or[names(which(top_clust == top_label))])
+largest_bottom_value <- max(top_or[names(which(top_clust == bottom_label))])
+midpoint <- (smallest_top_value + largest_bottom_value) / 2
 top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels = c("Better", "Worse")))
 (p5 <- ggplot(data = top_data, aes(x = cluster, y = odds_ratio)) +
      geom_boxplot() + 
@@ -211,6 +237,7 @@ top_data <- data.frame(odds_ratio = top_or, cluster = factor(top_clust, labels =
      ylim(c(0, 3.25)) +
      geom_jitter(width = 0.1, alpha = 0.5) +
      geom_hline(yintercept = 1) +
+     geom_hline(yintercept = midpoint, color = 'red', linetype = 'dashed') +
      xlab( paste("Cluster via '", top_desc, "'", sep="") ) )
 
 
@@ -242,7 +269,7 @@ save_plot("Figure4_v4.pdf", surv_plots,
 ## Figure 5
 (or_plots <- plot_grid(p1, p2, p3, p4,
                          labels=c("A", "B", "C", "D"), ncol = 2, align = "h"))
-save_plot("Figure5_v4.pdf", or_plots,
+save_plot("Figure5_v5.pdf", or_plots,
           ncol = 2, # we're saving a grid plot of 2 columns
           nrow = 2, # and 2 rows
           # each individual subplot should have an aspect ratio of 1.3

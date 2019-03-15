@@ -1,6 +1,6 @@
-## LUSC subtyping via using isoform RNAseq
+## LUSC subtyping via using isoform RNAseq differences ("delta")
 ## AG Schissler
-## Created 29 Jul 2017
+## Created 3 Mar 2019
 
 ############################################################
 ## i. Load clinical data and results
@@ -12,7 +12,7 @@ load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/lusc_iso_kegg_data.RData") ##
 source("~/Dropbox/Splice-n-of-1-pathways/Code/surv_functions.R")
 
 ## explore clinical
-table(clin_data$vitalstatus) ## 52 in clinical
+table(clin_data$vitalstatus) ## 51 in clinical
 
 ## rename to make generic
 iso_data <- lusc_iso_kegg_data
@@ -34,9 +34,11 @@ kegg_list <- kegg_list[which(size >= 15 & size <= 500)]
 ############################################################
 ## 1. Cluster on isoform expr and get surv empirical for each kegg pathway 
 
-## use only tumor expression
+## Explore use only tumor - normal expression as suggested by a reviewer
 
-iso_data <- iso_data[ , c(1,2, grep("-T", names(iso_data)))]
+normal_iso_data <- iso_data[ , c(1,2, grep("-N", names(iso_data)))]
+tumor_iso_data <- iso_data[ , c(1,2, grep("-T", names(iso_data)))]
+iso_data <- cbind(isoform_id = normal_iso_data$isoform_id, geneSymbol = normal_iso_data$geneSymbol, tumor_iso_data[, -(1:2)] - normal_iso_data[ ,-(1:2)])
 names(iso_data) <- gsub("-T$", "", names(iso_data))
 ## pathway_genes <- kegg_list[[1]]
 
@@ -66,29 +68,32 @@ system.time(emp_pvalue <- unlist(parallel::parLapply(cl, X = kegg_list[sample(1:
 emp_pvalue
 
 ## run on all pathways
-set.seed(44)
+set.seed(444)
 system.time(emp_pvalue <- unlist(parallel::parLapply(cl, X = kegg_list, fun = get_empirical_pvalue, iso_data, clin_data)))
+
+## 9.459283 minutes
 
 str(emp_pvalue)
 
 ## stop Cluster
 parallel::stopCluster(cl)
 
-save(emp_pvalue, file = "~/Dropbox/Splice-n-of-1-pathways/Data/tumor_iso_surv_empirical_pvalues.RData")
+save(emp_pvalue, file = "~/Dropbox/Splice-n-of-1-pathways/Data/tumorMinusNormal_iso_surv_empirical_pvalues.RData")
 
 ############################################################
 ## 2. Explore the Emprical results
 
-load(file = "~/Dropbox/Splice-n-of-1-pathways/Data/tumor_iso_surv_empirical_pvalues.RData")
+load("~/Dropbox/Splice-n-of-1-pathways/Data/tumorMinusNormal_iso_surv_empirical_pvalues.RData")
 
 hist(emp_pvalue, breaks = 15)
+summary(emp_pvalue)
 emp_pvalue <- sort(emp_pvalue)
 head(emp_pvalue)
 
 ## where is the target
 target <- kegg_desc$path_id[grep("Non-small cell lung cancer", kegg_desc$description)]
 emp_pvalue[target]
-which(names(emp_pvalue) == target) ## 56
+which(names(emp_pvalue) == target) ## 144
 
 bh_pvalue <- p.adjust(emp_pvalue, "BH") ## nothing at FDR 50%
 head(bh_pvalue, 56)
@@ -122,7 +127,7 @@ one_clust <- top_clust
 (top_desc <- kegg_desc[hits[i], 2])
 (top_surv <- fit_surv(clusters = top_clust, clin_data = clin_data, plot = T))
 (s1 <- top_surv$plot + labs(title = paste("Cluster via '", top_desc, "'", sep="")))
-    
+     
 ### hit 2
 i <- 2
 tmp_genes <- kegg_list[[hits[i]]]
@@ -185,7 +190,7 @@ save_plot("TumorIso_Figure4.pdf", surv_plots,
           base_aspect_ratio = 1.1,
           )
 
-save_plot("TumorIso_Target_pathway_surv.pdf", s5)
+save_plot("TumorMinusNormal_Target_pathway_surv.pdf", s5)
 
 
 ############################################################

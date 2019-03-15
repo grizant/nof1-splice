@@ -28,8 +28,6 @@ str(fil_fdr_mat)
 ############################################################
 ## 2. Select pathways that produce distinct survival curves
 
-
-
 ## two clusters (not sure how to justify this other than simplicity)
 clust_pvalue <- get_pathway_pvalue(value_mat = fil_effect_mat, clin_data = clin_data, type = "pam", num_clusters = 2)
 hist(clust_pvalue)

@@ -269,31 +269,70 @@ get_pathway_pvalue <- function(value_mat, clin_data, type, num_clusters, ...){
 ## helper function
 
 ## tmp_genes <- sample( unique(iso_data$geneSymbol),  size = num_genes )
+## tmp_genes <- rand_genes_mat[,1]
 
-clust_surv_pvalue <- function(tmp_genes, iso_data, clin_data, ...) {
-    tmp_mat <- as.matrix(t(iso_data[iso_data$geneSymbol %in% tmp_genes, -(1:2)]))
-    tmp_clust <- cluster_pat(tmp_mat)
-    ## fit survival objects on observed data
-    tmp_surv <- fit_surv(clusters = tmp_clust, clin_data, plot = F)
+clust_surv_pvalue <- function(tmp_genes, iso_data = NULL, clin_data, hel_data = NULL, ...) {
+    ## generalize for iso_data or hel_data
+    to_return <- NA
+    if (!is.null(iso_data)) {
+        tmp_mat <- as.matrix(t(iso_data[iso_data$geneSymbol %in% tmp_genes, -(1:2)]))
+        tmp_clust <- cluster_pat(tmp_mat)
+        ## fit survival objects on observed data
+        tmp_surv <- fit_surv(clusters = tmp_clust, clin_data, plot = F)
+        to_return <- get_surv_pvalue(tmp_surv)
+    }
+    ## hel_data
+    if (!is.null(hel_data)) {
+        tmp_mat <- hel_data[ ,colnames(hel_data) %in% tmp_genes]
+        tmp_clust <- cluster_pat(tmp_mat)
+        ## fit survival objects on observed data
+        tmp_surv <- fit_surv(clusters = tmp_clust, clin_data, plot = F)
+        to_return <- get_surv_pvalue(tmp_surv)
+    }
     ## tmp_surv$plot
-    return(get_surv_pvalue(tmp_surv))
+    return(to_return)
 }
 
-get_empirical_pvalue <- function(pathway_genes, iso_data, clin_data, reps = 2000, ...){
-    ## subset to isoforms in gene set
-    num_genes <- length(unique(iso_data$geneSymbol[(iso_data$geneSymbol %in% pathway_genes)]))
-    ### get observed p-value
-    obs_pvalue <- clust_surv_pvalue(pathway_genes, iso_data, clin_data)
-    ## now sample of same size
-    ## find random genes
-    rand_genes_mat <- replicate(n = reps, sample( unique(iso_data$geneSymbol),  size = num_genes ))
-    ## compute p-values
-    ## system.time(rand_pvalue_mat <- apply(rand_genes, 2, clust_surv_pvalue, iso_data, clin_data)) ## 12 seconds
-    rand_pvalue <- apply(rand_genes_mat, 2, clust_surv_pvalue, iso_data = iso_data, clin_data = clin_data) ## 12 seconds for 65 genes
+get_empirical_pvalue <- function(pathway_genes, iso_data = NULL, clin_data, hel_data = NULL, reps = 2000, ...){
+
+    ## generalize for iso_data or hel_data
+    empirical_pvalue <- NULL
+    
+    ## iso_data
+    if (!is.null(iso_data)) {
+        ## subset to isoforms in gene set
+        num_genes <- length(unique(iso_data$geneSymbol[(iso_data$geneSymbol %in% pathway_genes)]))
+        ## get observed p-value
+        obs_pvalue <- clust_surv_pvalue(tmp_genes = pathway_genes, iso_data = iso_data, clin_data = clin_data)
+        ## now sample of same size
+        ## find random genes
+        rand_genes_mat <- replicate(n = reps, sample( unique(iso_data$geneSymbol),  size = num_genes ))
+        ## compute p-values
+        ## system.time(rand_pvalue_mat <- apply(rand_genes, 2, clust_surv_pvalue, iso_data, clin_data)) ## 12 seconds
+        rand_pvalue <- apply(rand_genes_mat, 2, clust_surv_pvalue, iso_data = iso_data, clin_data = clin_data) ## 12 seconds for 65 genes
     ## hist(rand_pvalue_mat)
     ## get proportion smaller
-    empirical_pvalue <- sum(rand_pvalue <= obs_pvalue)/reps
-    ## now find the p-values
+        empirical_pvalue <- sum(rand_pvalue <= obs_pvalue)/reps
+    }
+
+    ## hel_data
+    if (!is.null(hel_data)) {
+        ## number of genes
+        num_genes <- sum(colnames(hel_data) %in% pathway_genes)
+        ## get observed p-value
+        obs_pvalue <- clust_surv_pvalue(tmp_genes = pathway_genes, clin_data = clin_data, hel_data = hel_data)
+        ## now sample of same size
+        ## find random genes
+        rand_genes_mat <- replicate(n = reps, sample( colnames(hel_data),  size = num_genes ))
+        ## compute p-values
+        ## system.time(rand_pvalue_mat <- apply(rand_genes, 2, clust_surv_pvalue, iso_data, clin_data)) ## 12 seconds/ 65 genes
+        rand_pvalue <- apply(rand_genes_mat, 2, clust_surv_pvalue, clin_data = clin_data, hel_data = hel_data)
+    ## hist(rand_pvalue_mat)
+    ## get proportion smaller
+        empirical_pvalue <- sum(rand_pvalue <= obs_pvalue)/reps
+    }
+    
+    ## now return the p-values
     return(empirical_pvalue)
 }
 

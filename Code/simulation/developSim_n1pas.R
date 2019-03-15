@@ -349,3 +349,37 @@ system("rsync -vt ~/Dropbox/Splice-n-of-1-pathways/Code/splice_functions.R aschi
 ## KEGG information
 system("rsync -vt ~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg_tb.txt aschissler@okapi.math.unr.edu:/home/aschissler/Research/n1pas/data")
 system("rsync -vt ~/Dropbox/Lab-Tools/GeneSets/KEGG/kegg.description_tb.txt aschissler@okapi.math.unr.edu:/home/aschissler/Research/n1pas/data")
+
+## transfer simulation scripts
+system("rsync -vt ~/Dropbox/Splice-n-of-1-pathways/Code/simulation/runSim_n1pas.R aschissler@okapi.math.unr.edu:/home/aschissler/Research/n1pas/sim_files")
+system("rsync -vt ~/Dropbox/Splice-n-of-1-pathways/Code/simulation/runSim_n1pas_unitTest.sh aschissler@okapi.math.unr.edu:/home/aschissler/Research/n1pas/sim_files")
+
+## test R non-interactively
+## time Rscript runSim_n1pas.R ucec 1 50 0.5 10 44 ~/Research/n1pas/sim_results/test2.csv
+
+## run time estimation
+num_pat <- 7 + 19 + 51 + 52 + 58 + 59 ## 246 total
+num_p <- 4
+num_pi <- 5
+reps <- 100
+## run_time <- 30 ## minutes for 2000 runs, 
+## run_time <- 30 ## minutes for 2000 runs
+reps_per_min <- 65
+
+(minutes_per_job <- 3)
+
+## number of jobs
+(num_jobs <- num_pat * num_p * num_pi)
+
+## number of cores
+num_cores <- 48
+## occupy the number of cores 
+(num_nodes <- num_jobs / num_cores)
+
+## time estimate
+(num_nodes * minutes_per_job) / 60
+
+## about 5 to 6 hours
+
+
+

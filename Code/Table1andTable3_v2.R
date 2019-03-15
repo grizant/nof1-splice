@@ -1,7 +1,7 @@
 ## Validate TCGA all patients through aggregation of target pathway information
 ## AG Schissler
-## Created 25 Jul 2017
-## Last modified 21 Feb 2019
+## Created 22 Feb 2019
+## Last modified 
 
 ##############################################################################
 #### Source validation functions
@@ -16,6 +16,12 @@ all_data <- NULL
 
 ## 1. BLCA
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## remove filtered pathways pathways
+min_genes <- 15
+max_genes <- 500
+scores_list <- lapply(scores_list, FUN = function(tmp_data){
+    tmp_data <- tmp_data[tmp_data$num_genes_annot >= min_genes & tmp_data$num_genes_annot <= max_genes,]
+})
 ## explore gene set bias
 ## tmp_data <- scores_list[[sample(length(scores_list), 1)]]
 ## tmp_data <- tmp_data[!is.na(tmp_data$pathway_score),]
@@ -29,7 +35,7 @@ load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_BLCA_hel_EE_Iso30_expressiod_pa
 (cancer_ids <- names(cancer_pathways))
 (target <- names(cancer_pathways)[grep("Bladder", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
-## null pathway assessment
+## null pathway assessment (remove filtered pathways)
 effect_mat <- compile_scores(scores_list = scores_list, type = "pathway_score", remove_missing = F)
 fdr_mat <- compile_scores(scores_list = scores_list, type = "fdr_value", remove_missing = F)
 convert_to_list <- function(x) {split(x, rep(1:ncol(x), each = nrow(x)))}
@@ -104,6 +110,12 @@ rownames(to_return) <- "BLCA"
 ################################################
 ## 2. THCA
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_THCA_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## remove filtered pathways pathways
+min_genes <- 15
+max_genes <- 500
+scores_list <- lapply(scores_list, FUN = function(tmp_data){
+    tmp_data <- tmp_data[tmp_data$num_genes_annot >= min_genes & tmp_data$num_genes_annot <= max_genes,]
+})
 (target <- names(cancer_pathways)[grep("Thyroid", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
 ## null pathway assessment
@@ -178,6 +190,12 @@ rownames(to_return) <- "THCA"
 
 ## 3. UCEC
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_UCEC_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## remove filtered pathways pathways
+min_genes <- 15
+max_genes <- 500
+scores_list <- lapply(scores_list, FUN = function(tmp_data){
+    tmp_data <- tmp_data[tmp_data$num_genes_annot >= min_genes & tmp_data$num_genes_annot <= max_genes,]
+})
 (target <- names(cancer_pathways)[grep("Endo", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
 ## null pathway assessment
@@ -252,6 +270,12 @@ rownames(to_return) <- "UCEC"
 
 ## 4. PRAD
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_PRAD_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## remove filtered pathways pathways
+min_genes <- 15
+max_genes <- 500
+scores_list <- lapply(scores_list, FUN = function(tmp_data){
+    tmp_data <- tmp_data[tmp_data$num_genes_annot >= min_genes & tmp_data$num_genes_annot <= max_genes,]
+})
 (target <- names(cancer_pathways)[grep("Prostate", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
 ## null pathway assessment
@@ -326,6 +350,12 @@ rownames(to_return) <- "PRAD"
 
 ## 5. LUSC
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUSC_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## remove filtered pathways pathways
+min_genes <- 15
+max_genes <- 500
+scores_list <- lapply(scores_list, FUN = function(tmp_data){
+    tmp_data <- tmp_data[tmp_data$num_genes_annot >= min_genes & tmp_data$num_genes_annot <= max_genes,]
+})
 (target <- names(cancer_pathways)[grep("Non-small cell lung", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
 ## null pathway assessment
@@ -409,6 +439,12 @@ rownames(to_return) <- "LUSC"
 
 ## 6. LUAD
 load("~/Dropbox/Splice-n-of-1-pathways/Data/TCGA_LUAD_hel_EE_Iso30_expressiod_pathwayfilter_KEGG_25july2017.RData")
+## remove filtered pathways pathways
+min_genes <- 15
+max_genes <- 500
+scores_list <- lapply(scores_list, FUN = function(tmp_data){
+    tmp_data <- tmp_data[tmp_data$num_genes_annot >= min_genes & tmp_data$num_genes_annot <= max_genes,]
+})
 (target <- names(cancer_pathways)[grep("Non-small cell lung", cancer_pathways)])
 target_data <- get_target_info(scores_list, target = target, cancer_ids = cancer_ids, fdr = 0.2, one_sided = T)
 ## null pathway assessment
